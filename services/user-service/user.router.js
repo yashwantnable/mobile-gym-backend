@@ -1,0 +1,88 @@
+import { Router } from "express";
+import multer from "../../middlewares/multer.middleware.js"
+import { verifyJWT } from "../../middlewares/auth.middleware.js";
+import { adminOnly } from "../../middlewares/role.middleware.js";
+import {customerOnly} from "../../middlewares/role.middleware.js"
+import{
+    updateUserStatus,
+    createUser,
+    updateUser,
+    getAllUser,
+    getUserById,
+    deleteUser,
+    getAllCustomerService,
+    getAllSubserviceByService,
+    getSubserviceBySubServiceId,
+    createAddress,
+    updateAddress,
+    getAllAddress,
+    getAddressById,
+    deleteAddress,
+    createSubServiceRatingReview,
+    updateSubServiceRatingReview,
+    getAllSubServiceRatingReviews,
+    getSubServiceRatingReviewByUser,
+    createGroomerRatingReview,
+    updateGroomerRatingReview,
+    getAllGroomerReviews,
+    getGroomerRatingReviewByUser,
+    calculateCartTotal,
+    getAllSubServicesRatingReviews,
+    getAdminDetails,
+    getAllNotification,
+    updateNotification,
+    updateAllNotification,
+} from "./user.controller.js"
+
+import {getAllArticals, getArticalById} from "../../services/admin-service/admin.controller.js"
+
+const router = Router();
+
+router.route("/update-user-status/:userId").patch(verifyJWT, adminOnly, updateUserStatus)
+router.route("/create-user").post(verifyJWT, multer.uploadSingle("profile_image"), createUser);
+router.route("/get-all-user").get(verifyJWT,  getAllUser);
+router.route("/get-userby-id/:id").get(verifyJWT,  getUserById);
+router.route("/update-user/:id").put(verifyJWT, multer.uploadSingle("profile_image"), updateUser);
+router.route("/delete-user/:id").delete(verifyJWT, adminOnly, deleteUser);
+
+router.route("/get-all-services").get(getAllCustomerService);
+router.route("/get-all-sub-service/:serviceId").get(getAllSubserviceByService);
+router.route("/get-sub-service/:subServiceId").get(getSubserviceBySubServiceId);
+
+// routes for address
+router.route("/create-address").post(verifyJWT, customerOnly, createAddress);
+router.route("/update-address/:id").put(verifyJWT, customerOnly, updateAddress);
+router.route("/get-address-by-id/:id").get(verifyJWT, customerOnly, getAddressById);
+router.route("/get-all-address").get(verifyJWT, customerOnly, getAllAddress);
+router.route("/delete-address/:id").delete(verifyJWT, customerOnly, deleteAddress);
+
+router.route("/create-subservice-rating-review").post(verifyJWT,customerOnly,createSubServiceRatingReview);
+router.route("/update-subservice-review/:subServiceId").put(verifyJWT,customerOnly, updateSubServiceRatingReview);
+// router.route("/delete-groomer-review-images/:id").patch(verifyJWT, customerOnly, updateGroomerRatingReview);
+router.route("/get-rating-review/:subServiceId").get(verifyJWT,customerOnly,getSubServiceRatingReviewByUser);
+router.route("/get-all-subservice-rating-review/:subServiceId").get(verifyJWT,customerOnly,getAllSubServiceRatingReviews);
+router.route("/get-all-subservice-rating-review").get(verifyJWT,customerOnly,getAllSubServicesRatingReviews);
+
+
+router.route("/create-groomer-rating-review").post(verifyJWT,customerOnly,createGroomerRatingReview);
+router.route("/update-groomer-review/:groomerId").put(verifyJWT,customerOnly, updateGroomerRatingReview);
+router.route("/get-groomer-review/:groomerId").get(verifyJWT, getGroomerRatingReviewByUser);
+router.route("/get-all-groomer-reviews").get(verifyJWT, getAllGroomerReviews);
+
+
+router.route("/cart-total-price-calculate").post(verifyJWT,customerOnly,calculateCartTotal);
+
+router.route("/get-all-articals").get(verifyJWT, getAllArticals);
+router.route("/get-artical/:id").get(verifyJWT, getArticalById);
+router.route("/get-admin-details").get(getAdminDetails);
+
+//notification
+router.route("/get-all-notification").get(verifyJWT, getAllNotification);
+router.route("/update-notification/:id").put(verifyJWT, updateNotification);
+router.route("/update-all-notification").put(verifyJWT, updateAllNotification);
+router.route("/cancel-by-customer/::orderDetailsId").put(verifyJWT, updateAllNotification);
+
+export default router
+
+
+
