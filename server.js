@@ -3,7 +3,7 @@ import http from "http";
 import app, { socketService } from "./app.js";
 import connectDB from "./config/db.config.js";
 
-const port = process.env.PORT || 5008;
+const port = process.env.PORT || 5009;
 const httpServer = http.createServer(app);
 
 // Attach Socket.io to HTTP server

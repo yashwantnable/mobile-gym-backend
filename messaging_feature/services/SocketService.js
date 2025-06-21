@@ -13,6 +13,21 @@ class SocketService {
     });
   }
 
+  // initListeners() {
+  //   this._io.on("connection", (socket) => {
+  //     console.log("User connected:", socket.id);
+
+  //     socket.on("join", (userId) => {
+  //       socket.join(userId);
+  //       console.log(`User ${userId} joined their room`);
+  //     });
+
+  //     socket.on("disconnect", () => {
+  //       console.log("User disconnected:", socket.id);
+  //     });
+  //   });
+  // }
+
   initListeners() {
     try {
       this._io.on("connection", (socket) => {
@@ -30,22 +45,7 @@ class SocketService {
             console.error(`Error in join event: ${err.message}`);
           }
         });
-        // Typing indicator
-        socket.on("typing", ({ to, from }) => {
-          try {
-            this._io.to(to).emit("typing", { from });
-          } catch (err) {
-            console.error(`Error in typing event: ${err.message}`);
-          }
-        });
 
-        socket.on("stopTyping", ({ to, from }) => {
-          try {
-            this._io.to(to).emit("stopTyping", { from });
-          } catch (err) {
-            console.error(`Error in stopTyping event: ${err.message}`);
-          }
-        });
         socket.on("disconnect", () => {
           try {
             console.log("User disconnected:", socket.id);

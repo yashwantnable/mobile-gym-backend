@@ -1,13 +1,19 @@
 import mongoose, { Schema } from "mongoose";
 
-// pet type schema
-const petTypeSchema = new Schema(
+const tenureSchema = new Schema(
   {
     name: {
       type: String,
       lowercase: true,
       required: true,
-      trim: true,
+    },
+    duration: {
+      type: Number,
+      required: true, // in days
+    },
+    description: {
+      type: String,
+      default: null,
     },
     created_by: {
       type: Schema.Types.ObjectId,
@@ -23,32 +29,7 @@ const petTypeSchema = new Schema(
   { timestamps: true, versionKey: false }
 );
 
-// breed schema
-const breedSchema = new Schema(
-  {
-    petTypeId: {
-      type: Schema.Types.ObjectId,
-      ref: "PetType",
-      required: true,
-    },
-    name: {
-      type: String,
-      lowecase: true,
-      required: true,
-    },
-    created_by: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
-    },
-    updated_by: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
-    },
-  },
-  { timestamps: true, versionKey: false }
-);
+
 
 //country schema
 const countrySchema = new Schema(
@@ -144,31 +125,7 @@ const citySchema = new Schema(
 
 citySchema.index({ name: 1 });
 
-//vaccine schema
-const vaccineSchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      lowercase : true,
-      maxlength: 300,
-      required: true,
-    },
-    manufacturer : {
-      type : String,
-      lowecase : true,
-      required : true
-    },
-    created_by: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
-    },
-  },
-  {
-    timestamps: true,
-    versionKey: false,
-  }
-);
+
 
 // tax schema
 const taxMasterSchema = new Schema(
@@ -311,11 +268,43 @@ const currencySchema = new Schema(
 );
 
 
+// categorySchema 
+const categorySchema = new Schema(
+  {
+    // categoryId: {
+    //   type: Schema.Types.ObjectId,
+    //   ref: "PetType",
+    //   required: true,
+    // },
+    cName: {
+      type: String,
+      lowecase: true,
+      required: true,
+    },
+    cLevel: {
+      type: String,
+      lowecase: true,
+      required: true,
+    },
+    // created_by: {
+    //   type: Schema.Types.ObjectId,
+    //   ref: "User",
+    //   default: null,
+    // },
+    // updated_by: {
+    //   type: Schema.Types.ObjectId,
+    //   ref: "User",
+    //   default: null,
+    // },
+  },
+  { timestamps: true, versionKey: false }
+);
+
+export const Category = mongoose.model("Category", categorySchema);
+export const TenureModel = mongoose.model("TenureModel", tenureSchema);
+
 export const Currency = mongoose.model("Currency", currencySchema);
-export const PetType = mongoose.model("PetType", petTypeSchema);
-export const Breed = mongoose.model("Breed", breedSchema);
 export const Country = mongoose.model("Country", countrySchema);
 export const City = mongoose.model("City", citySchema);
-export const Vaccine = mongoose.model("Vaccine", vaccineSchema);
 export const TaxMaster = mongoose.model("TaxMaster", taxMasterSchema);
 export const ExtraCharge = mongoose.model("ExtraCharge", extraChargeSchema);

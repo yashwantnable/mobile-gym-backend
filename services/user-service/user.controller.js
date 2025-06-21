@@ -9,11 +9,11 @@ import {
   deleteFromCloudinary,
 } from "../../utils/cloudinary.js";
 
-import {ServiceType} from "../../models/service.model.js"
+// import {ServiceType} from "../../models/service.model.js"
 import {SubServiceType} from "../../models/subService.model.js"
-import {Address} from "../../models/user.model.js"
+// import {Address} from "../../models/user.model.js"
 import {SubServiceRatingReview} from "../../models/ratingReview.model.js"
-import { GroomerRatingReview } from "../../models/groomerRatingReview.model.js"
+import { TrainerRatingReview } from "../../models/trainerRatingReview.model.js"
 import {TaxMaster, ExtraCharge} from "../../models/master.model.js"
 import {Cart} from "../../models/cart.model.js"
 import {PromoCode} from "../../models/admin.model.js"
@@ -537,7 +537,7 @@ const deleteAddress = asyncHandler(async (req, res) => {
 
 // Create SubService Rating and Review
 const createSubServiceRatingReview = asyncHandler(async (req, res) => {
-  const { subService, rating, review, orderId, groomer } = req.body;
+  const { subService, rating, review, sessionId, trainer } = req.body;
 
   if (!subService || !rating) {
     return res.status(400).json(new ApiError(400, "SubService ID and rating are required"));
@@ -557,8 +557,8 @@ const createSubServiceRatingReview = asyncHandler(async (req, res) => {
     subService,
     rating,
     review: review || "",
-    orderId: orderId || null,
-    groomer: groomer || null,
+    sessionId: sessionId || null,
+    trainer: trainer || null,
     created_by: req.user._id,
   };
 
@@ -653,7 +653,7 @@ const getAllSubServiceRatingReviews = asyncHandler(async (req, res) => {
 
   const reviews = await SubServiceRatingReview.find({ subService: subServiceId })
     .populate("created_by", "first_name email")
-    .populate("groomer", "first_name email")
+    .populate("trainer", "first_name email")
     .exec();
 
   if (!reviews.length) {
@@ -679,7 +679,7 @@ const getAllSubServicesRatingReviews = asyncHandler(async (req, res) => {
  
   const reviews = await SubServiceRatingReview.find()
     .populate("created_by", "first_name email")
-    .populate("groomer", "first_name email")
+    .populate("trainer", "first_name email")
     .exec();
 
   if (!reviews.length) {
@@ -726,82 +726,82 @@ const getSubServiceRatingReviewByUser = asyncHandler(async (req, res) => {
 });
 
 
-// Create Groomer Rating and Review
-const createGroomerRatingReview = asyncHandler(async (req, res) => {
-  const {groomer, rating, review, orderId } = req.body;
+// Create Trainer Rating and Review
+const createTrainerRatingReview = asyncHandler(async (req, res) => {
+  const {trainer, rating, review, sessionId } = req.body;
 
   console.log("reqbody----------------->", req.body);
   
-  if (!groomer  || !rating) {
-    return res.status(400).json(new ApiError(400, "Groomer ID, SubService ID, and rating are required"));
+  if (!trainer  || !rating) {
+    return res.status(400).json(new ApiError(400, "Trainer ID, SubService ID, and rating are required"));
   }
 
-  const existingReview = await GroomerRatingReview.findOne({
-    // groomer,
+  const existingReview = await TrainerRatingReview.findOne({
+    // trainer,
     // created_by: req.user._id,
-    orderId
+    sessionId
   });
 // console.log("existingReview----------------------->",existingReview);
 
   if (existingReview) {
-    return res.status(400).json(new ApiError(400, "You have already reviewed this groomer for this order"));
+    return res.status(400).json(new ApiError(400, "You have already reviewed this trainer for this order"));
   }
 
   const reviewData = {
-    groomer,
+    trainer,
     rating,
     review: review || "",
-    orderId: orderId || null,
+    sessionId: sessionId || null,
     created_by: req.user._id,
   };
 
-  const createdReview = await GroomerRatingReview.create(reviewData);
+  const createdReview = await TrainerRatingReview.create(reviewData);
   console.log("createdReview----------------------------------->",createdReview);
   
   return res
     .status(201)
-    .json(new ApiResponse(201, createdReview, "Groomer review added successfully"));
+    .json(new ApiResponse(201, createdReview, "Trainer review added successfully"));
 });
 
 
-// Update Groomer Rating and Review
-const updateGroomerRatingReview = asyncHandler(async (req, res) => {
-  const { groomerId } = req.params;
-  const { orderId, rating, review } = req.body;
+// Update Trainer Rating and Review
+const updateTrainerRatingReview = asyncHandler(async (req, res) => {
+  const { trainerId } = req.params;
+  const { sessionId, rating, review } = req.body;
 
   if (!review) {
     return res.status(400).json(new ApiError(400, "Review text is required"));
   }
 
-  const existingReview = await GroomerRatingReview.findOne({
-    groomer: groomerId,
+  const existingReview = await TrainerRatingReview.findOne({
+    trainer: trainerId,
     // subService,
-    orderId,
+    sessionId,
     created_by: req.user._id,
   });
 
   if (!existingReview) {
-    return res.status(404).json(new ApiError(404, "Review not found for this groomer and sub-service by the user"));
+    return res.status(404).json(new ApiError(404, "Review not found for this trainer and sub-service by the user"));
   }
 
   existingReview.rating = rating || existingReview.rating;
   existingReview.review = review;
-  existingReview.orderId = orderId;
+  existingReview.sessionId = sessionId;
   existingReview.updated_by = req.user._id;
 
   await existingReview.save();
 
   return res.status(200).json(
-    new ApiResponse(200, existingReview, "Groomer review updated successfully")
+    new ApiResponse(200, existingReview, "Trainer review updated successfully")
   );
 });
 
 
-// Get all Groomer Reviews
-const getAllGroomerReviews = asyncHandler(async (req, res) => {
+// Get all Trainer Reviews
+const getAllTrainerReviews = asyncHandler(async (req, res) => {
 
-  const reviews = await GroomerRatingReview.find({})
-    .populate("groomer", "first_name profile_image") 
+  const reviews = await TrainerRatingReview.find({})
+    .populate("trainer", "first_name profile_image") 
     .populate("subService", "name") 
     .populate("created_by", "name") 
     .populate("updated_by", "name") 
@@ -811,54 +811,54 @@ const getAllGroomerReviews = asyncHandler(async (req, res) => {
     return res.status(404).json(new ApiError(404, "No reviews found"));
   }
 
-  return res.status(200).json(new ApiResponse(200, reviews, "All groomer reviews fetched successfully"));
+  return res.status(200).json(new ApiResponse(200, reviews, "All trainer reviews fetched successfully"));
 });
 
 
-// Get Groomer Rating and Review by User
-// const getGroomerRatingReviewByUser = asyncHandler(async (req, res) => {
-//   const { groomerId } = req.params;
+// Get Trainer Rating and Review by User
+// const getTrainerRatingReviewByUser = asyncHandler(async (req, res) => {
+//   const { trainerId } = req.params;
 
-//   if (!groomerId) {
-//     return res.status(400).json(new ApiError(400, "Groomer ID is required"));
+//   if (!trainerId) {
+//     return res.status(400).json(new ApiError(400, "Trainer ID is required"));
 //   }
 
-//   const review = await GroomerRatingReview.findOne({
-//     groomer: groomerId,
+//   const review = await TrainerRatingReview.findOne({
+//     trainer: trainerId,
 //     created_by: req.user._id,
 //   })
-//     .populate("groomer", "first_name profile_image")
+//     .populate("trainer", "first_name profile_image")
 //     .exec();
 
 //     console.log("review---------------->",review);
     
 //   if (!review) {
-//     return res.status(200).json( new ApiResponse(200, {}, "No review found for this groomer by the user"));
+//     return res.status(200).json( new ApiResponse(200, {}, "No review found for this trainer by the user"));
 //   }
 
-//   return res.status(200).json(new ApiResponse(200, review, "User's groomer review fetched successfully"));
+//   return res.status(200).json(new ApiResponse(200, review, "User's trainer review fetched successfully"));
 // });
 
 /**---------- */
 
-const getGroomerRatingReviewByUser = asyncHandler(async (req, res) => {
-  const { groomerId } = req.params;
+const getTrainerRatingReviewByUser = asyncHandler(async (req, res) => {
+  const { trainerId } = req.params;
 
-  if (!groomerId) {
-    return res.status(400).json(new ApiError(400, "Groomer ID is required"));
+  if (!trainerId) {
+    return res.status(400).json(new ApiError(400, "Trainer ID is required"));
   }
 
-  // aggregate pipeline to fetch reviews for groomer where orderId exists in Order collection
-  const reviews = await GroomerRatingReview.aggregate([
+  // aggregate pipeline to fetch reviews for trainer where sessionId exists in Order collection
+  const reviews = await TrainerRatingReview.aggregate([
     {
       $match: {
-        groomer: new mongoose.Types.ObjectId(groomerId)
+        trainer: new mongoose.Types.ObjectId(trainerId)
       }
     },
     {
       $lookup: {
         from: "orders",
-        localField: "orderId",
+        localField: "sessionId",
         foreignField: "_id",
         as: "order"
       }
@@ -871,13 +871,13 @@ const getGroomerRatingReviewByUser = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "users",
-        localField: "groomer",
+        localField: "trainer",
         foreignField: "_id",
-        as: "groomerDetails"
+        as: "trainerDetails"
       }
     },
     {
-      $unwind: "$groomerDetails"
+      $unwind: "$trainerDetails"
     },
     {
       $project: {
@@ -885,9 +885,9 @@ const getGroomerRatingReviewByUser = asyncHandler(async (req, res) => {
         rating: 1,
         review: 1,
         createdAt: 1,
-        "groomerDetails.first_name": 1,
-        "groomerDetails.profile_image": 1,
-        orderId: 1
+        "trainerDetails.first_name": 1,
+        "trainerDetails.profile_image": 1,
+        sessionId: 1
       }
     }
   ]);
@@ -895,12 +895,12 @@ const getGroomerRatingReviewByUser = asyncHandler(async (req, res) => {
   if (!reviews.length) {
     return res
       .status(200)
-      .json(new ApiResponse(200, [], "No valid reviews found for this groomer."));
+      .json(new ApiResponse(200, [], "No valid reviews found for this trainer."));
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, reviews, "Groomer reviews with valid orders fetched successfully."));
+    .json(new ApiResponse(200, reviews, "Trainer reviews with valid orders fetched successfully."));
 });
 
 const calculateCartTotal = asyncHandler(async (req, res) => {
@@ -1242,7 +1242,7 @@ export {
   getAllUser,
   getUserById,
   deleteUser,
-  getAllCustomerService,
+  // getAllCustomerService,
   getAllSubserviceByService,
   getSubserviceBySubServiceId,
   createAddress,
@@ -1254,10 +1254,10 @@ export {
   updateSubServiceRatingReview,
   getAllSubServiceRatingReviews,
   getSubServiceRatingReviewByUser,
-  createGroomerRatingReview,
-  updateGroomerRatingReview,
-  getAllGroomerReviews,
-  getGroomerRatingReviewByUser,
+  createTrainerRatingReview,
+  updateTrainerRatingReview,
+  getAllTrainerReviews,
+  getTrainerRatingReviewByUser,
   calculateCartTotal,
   getAllSubServicesRatingReviews,
   getAdminDetails,

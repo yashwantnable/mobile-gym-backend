@@ -1,25 +1,20 @@
 import mongoose, { Schema } from "mongoose";
 
 
-const serviceSchema = new Schema(
-    {user: [{
+const sessionSchema = new Schema(
+    {
+      categoryId: {
         type: Schema.Types.ObjectId,
         ref: "User",
-        required: true,
-      }],
-      name: {
+        default: null,
+      },
+      sessionName: {
         type: String,
         lowercase: true,
         required: true,
       },
       image: {
         type: String,
-        required : true
-      },
-      description: {
-        type: String,
-        maxlength: 250,
-        default: null,
       },
       created_by: {
         type: Schema.Types.ObjectId,
@@ -39,4 +34,4 @@ const serviceSchema = new Schema(
   );
 
 
-export const ServiceType = mongoose.model("ServiceType", serviceSchema);
+export const Sessions = mongoose.model("Sessions", sessionSchema);

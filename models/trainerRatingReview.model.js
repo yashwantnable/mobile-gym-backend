@@ -1,13 +1,13 @@
 import mongoose, { Schema } from "mongoose";
 
-const groomerRatingReviewSchema = new Schema(
+const trainerRatingReviewSchema = new Schema(
     {
-        groomer: {
+        trainer: {
             type: Schema.Types.ObjectId,
-            ref: "User", // assuming groomers are users
+            ref: "User",
             required: true,
         },
-        subService: {
+        session: {
             type: Schema.Types.ObjectId,
             ref: "SubServiceType",
             // required: true,
@@ -24,9 +24,9 @@ const groomerRatingReviewSchema = new Schema(
             default: "",
             // maxlength: [600, "Review must be 600 characters or fewer"],
         },
-        orderId: {
+        sessionId: {
             type: Schema.Types.ObjectId,
-            ref: "Order",
+            ref: "Session",
             // default: null,
             required : true
         },
@@ -46,7 +46,7 @@ const groomerRatingReviewSchema = new Schema(
     }
 );
 
-async function updateGroomerAverageRating(ReviewModel, groomerId) {
+async function updateTrainerAverageRating(ReviewModel, groomerId) {
     const result = await ReviewModel.aggregate([
         { $match: { groomer: groomerId, rating: { $ne: 0 } } },
         { $group: { _id: "$groomer", averageRating: { $avg: "$rating" } } },
@@ -60,15 +60,15 @@ async function updateGroomerAverageRating(ReviewModel, groomerId) {
     }
 }
 
-groomerRatingReviewSchema.post("save", async function (doc) {
+trainerRatingReviewSchema.post("save", async function (doc) {
     const ReviewModel = this.constructor;
-    await updateGroomerAverageRating(ReviewModel, doc.groomer);
+    await updateTrainerAverageRating(ReviewModel, doc.groomer);
 });
 
-groomerRatingReviewSchema.post("findOneAndUpdate", async function (doc) {
+trainerRatingReviewSchema.post("findOneAndUpdate", async function (doc) {
     const ReviewModel = this.model;
-    await updateGroomerAverageRating(ReviewModel, doc.groomer);
+    await updateTrainerAverageRating(ReviewModel, doc.groomer);
 });
 
 
-export const GroomerRatingReview = mongoose.model("GroomerRatingReview", groomerRatingReviewSchema);
+export const TrainerRatingReview = mongoose.model("GroomerRatingReview", trainerRatingReviewSchema);

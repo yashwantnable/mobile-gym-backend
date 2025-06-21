@@ -397,7 +397,6 @@ const createCartItem = asyncHandler(async (req, res) => {
 const getAllCartItems = asyncHandler(async (req, res) => {
   const cartItems = await Cart.find({ created_by: req.user._id })
     .populate("subServiceId")
-    .populate("serviceId")
     .populate("petTypeId")
     .populate("timeslot")
     .sort({ _id: -1 });

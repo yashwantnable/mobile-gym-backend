@@ -4974,7 +4974,7 @@ export const swaggerOptions = {
                 "schema": {
                   "type": "object",
                   "example": {
-                    "emailOrPhone": "admin@gmail.com",
+                    "emailOrPhone": "adminoutlet@gmail.com",
                     "password": "India@123"
                   }
                 }

@@ -6,14 +6,235 @@ import {
   uploadOnCloudinary,
   deleteFromCloudinary,
 } from "../../utils/cloudinary.js";
-import { City, Country, Breed, PetType, TaxMaster, ExtraCharge, Vaccine } from "../../models/master.model.js"
-import { ServiceType } from "../../models/service.model.js";
+import { City, Country, TaxMaster, TenureModel } from "../../models/master.model.js"
 import cities from "../../utils/seeds/cities.js";
 import countries from "../../utils/seeds/countries.js"
 import pagination from "../../utils/pagination.js"
 import { UserRole } from "../../models/userRole.model.js";
+import { CategoryModel } from "../../models/categories.model.js";
+import {Sessions} from "../../models/service.model.js";
 
 
+// Create Tenure
+const createTenure = asyncHandler(async (req, res) => {
+  const { name, duration, description } = req.body;
+
+  const requiredFields = { name, duration };
+
+  const missingFields = Object.keys(requiredFields).filter(
+    (field) => !requiredFields[field] || requiredFields[field] === "undefined"
+  );
+
+  if (missingFields.length > 0) {
+    return res
+      .status(400)
+      .json(new ApiError(400, `Missing required field: ${missingFields.join(", ")}`));
+  }
+
+  const existingTenure = await TenureModel.findOne({ name });
+  if (existingTenure) {
+    return res.status(409).json(new ApiError(409, "Tenure already exists"));
+  }
+
+  const createdTenure = await TenureModel.create({
+    name,
+    duration,
+    description,
+    created_by: req.user?._id,
+  });
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, createdTenure, "Tenure created successfully"));
+});
+
+// Get All Tenure
+const getAllTenure = asyncHandler(async (req, res) => {
+  const tenures = await TenureModel.find();
+  return res
+    .status(200)
+    .json(new ApiResponse(200, tenures, "All tenures fetched successfully"));
+});
+
+// Get Single Tenure
+const getSingleTenure = asyncHandler(async (req, res) => {
+  if (!req.params.id || req.params.id === "undefined") {
+    return res.status(400).json(new ApiError(400, "id not provided"));
+  }
+
+  const tenure = await TenureModel.findById(req.params.id);
+  if (!tenure) {
+    return res.status(404).json(new ApiError(404, "Tenure not found"));
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, tenure, "Tenure fetched successfully"));
+});
+
+// Update Tenure
+const updateTenure = asyncHandler(async (req, res) => {
+  if (!req.params.id || req.params.id === "undefined") {
+    return res.status(400).json(new ApiError(400, "id not provided"));
+  }
+
+  if (Object.keys(req.body).length === 0) {
+    return res.status(400).json(new ApiError(400, "No data provided to update"));
+  }
+
+  const { name, duration, description } = req.body;
+
+  const updatedTenure = await TenureModel.findByIdAndUpdate(
+    req.params.id,
+    { name, duration, description, updated_by: req.user?._id },
+    { new: true }
+  );
+
+  if (!updatedTenure) {
+    return res.status(404).json(new ApiError(404, "Tenure not found"));
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedTenure, "Tenure updated successfully"));
+});
+
+// Delete Tenure
+const deleteTenure = asyncHandler(async (req, res) => {
+  if (!req.params.id || req.params.id === "undefined") {
+    return res.status(400).json(new ApiError(400, "id not provided"));
+  }
+
+  const deleted = await TenureModel.findByIdAndDelete(req.params.id);
+  if (!deleted) {
+    return res.status(404).json(new ApiError(404, "Tenure not found"));
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Tenure deleted successfully"));
+});
+
+
+
+
+
+/////////////////////////////////////////////////////// Catagory ////////////////////////////////////////////////////////
+// create Catagory
+const createCategory = asyncHandler(async (req, res) => {
+  console.log("req.body", req.body);
+
+  const { cName, cLevel } = req.body;
+
+
+  const requiredFields = { cName, cLevel };
+
+  const missingFields = Object.keys(requiredFields).filter(
+    (field) => !requiredFields[field] || requiredFields[field] === "undefined"
+  );
+
+  if (missingFields.length > 0) {
+    return res
+      .status(400)
+      .json(
+        new ApiError(400, `Missing required field: ${missingFields.join(", ")}`)
+      );
+  }
+
+  const existingCategory = await CategoryModel.findOne({ cName });
+  if (existingCategory) {
+    return res
+      .status(409)
+      .json(new ApiError(409, `Category is created already`));
+  }
+
+  const createdCategory = await CategoryModel.create({
+    cName,
+    cLevel,
+  });
+ console.log("createdCategory:",createdCategory);
+ 
+  return res
+    .status(201)
+    .json(new ApiResponse(201, createdCategory, "Category created successfully"));
+});
+// get all Catagory
+const getAllCategory = asyncHandler(async (req, res) => {
+  const allCategories = await CategoryModel.find({});
+  res.status(200).json(new ApiResponse(200, allCategories, "all Categories fetched successfully"));
+});
+
+const deleteCategory = asyncHandler(async (req, res) => {
+
+  if (req.params.id =="undefined" || !req.params.id) {
+    return res.status(400).json(new ApiError(400, "id not provided"));
+  }
+
+  const deleteCategory = await CategoryModel.findByIdAndDelete(req.params.id);
+
+  if (!deleteCategory) {
+    return res
+    .status(404)
+    .json(new ApiError(404, "Category not found"));
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Category deleted successfully"));
+});
+
+//update category
+const updateCategory = asyncHandler(async (req, res) => {
+
+  if (req.params.id =="undefined" || !req.params.id) {
+      return res.status(400).json(new ApiError(400, "id not provided"));
+  }
+
+  if (Object.keys(req.body).length === 0) {
+      return res.status(400).json(new ApiError(400, "No data provided to update"))
+  } 
+
+  const { cName, cLevel } = req.body;
+
+  const updatedCategory = await CategoryModel.findByIdAndUpdate(
+    req.params.id,
+    {
+      cName,
+      cLevel,
+      updated_by: req.user?._id,
+    },
+    { new: true }
+  );
+
+  if (!updatedCategory) {
+    return res
+    .status(404)
+    .json(new ApiError(404, "Category not found"));
+    
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200,updatedCategory,"Category updated successfully")
+    );
+});
+
+//get single category
+const getSingleCategory = asyncHandler(async (req, res) => {
+  if (req.params.id == "undefined" || !req.params.id) {
+    return res.status(400).json(new ApiError(400, "id not provided"));
+  }
+
+  const category = await CategoryModel.findById(req.params.id);
+
+  if (!category) {
+    return res.status(404).json(new ApiError(404, "Category not found"));
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, category, "Category fetched successfully"));
+});
 
 /////////////////////////////////////////////////////// ROLE ////////////////////////////////////////////////////////
 // Create role
@@ -384,13 +605,13 @@ const deleteAllCities = asyncHandler(async (req, res) => {
 
 
 /////////////////////////////////////////////////////// SERVICE ////////////////////////////////////////////////////////
-// Create ServiceType
-const createServiceType = asyncHandler(async (req, res) => {
-  const { name, description } = req.body;
+// Create Sessions
+const createSession = asyncHandler(async (req, res) => {
+  const { categoryId, sessionName } = req.body;
   const imageLocalPath = req.file?.path;
 
   const requiredFields = {
-    name: (value) => value !== undefined && value !== null,
+    sessionName: (value) => value !== undefined && value !== null && value.trim() !== "",
   };
 
   const missingFields = Object.entries(requiredFields)
@@ -398,7 +619,9 @@ const createServiceType = asyncHandler(async (req, res) => {
     .map(([field]) => field);
 
   if (missingFields.length > 0) {
-    return res.status(400).json(new ApiError(400, `Missing or invalid fields: ${missingFields.join(", ")}`));
+    return res
+      .status(400)
+      .json(new ApiError(400, `Missing or invalid fields: ${missingFields.join(", ")}`));
   }
 
   let image = null;
@@ -410,94 +633,117 @@ const createServiceType = asyncHandler(async (req, res) => {
     image = uploadedImage.url;
   }
 
-  const serviceType = await ServiceType.create({
-    name,
-    description,
+  const session = await Sessions.create({
+    categoryId,
+    sessionName,
     image,
     created_by: req.user._id,
   });
 
-  res.status(201).json(new ApiResponse(201, serviceType, "Service Type created successfully"));
+  res
+    .status(201)
+    .json(new ApiResponse(201, session, "Session created successfully"));
 });
 
 
-// Get all ServiceTypes
-const getAllServiceTypes = asyncHandler(async (req, res) => {
-  const serviceTypes = await ServiceType.find();
-  res.status(200).json(new ApiResponse(200, serviceTypes, "Service Types fetched successfully"));
+
+// Get getAllSessions
+const getAllSessions = asyncHandler(async (req, res) => {
+  const sessions = await Sessions.find().populate("categoryId");
+  res.status(200).json(new ApiResponse(200, sessions, "Sessions fetched successfully"));
 });
 
 
-// Get ServiceType by ID
-const getServiceTypeById = asyncHandler(async (req, res) => {
+
+// Get Sessions by ID
+const getSessionById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!id) {
-    return res.status(400).json(new ApiError(400, "Service Type ID is required"));
-  }
-  const serviceType = await ServiceType.findById(id);
-  if (!serviceType) {
-    return res.status(404).json(new ApiError(404, "Service Type not found"));
-  }
-  res.status(200).json(new ApiResponse(200, serviceType, "Service Type fetched successfully"));
-})
-
-
-// Update ServiceType
-const updateServiceType = asyncHandler(async (req, res) => {
-  if (!req.params.id || req.params.id == "undefined") {
-    return res.status(400).json(new ApiError(400, "ID not provided"));
+    return res.status(400).json(new ApiError(400, "Session ID is required"));
   }
 
-  if (Object.keys(req.body).length === 0 && !req.file) {
+  const session = await Sessions.findById(id).populate("categoryId");
+  if (!session) {
+    return res.status(404).json(new ApiError(404, "Session not found"));
+  }
+
+  res.status(200).json(new ApiResponse(200, session, "Session fetched successfully"));
+});
+
+
+
+// Update Sessions
+const updateSession = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { sessionName, categoryId } = req.body;
+  const imageLocalPath = req.file?.path;
+
+  if (!id || id === "undefined") {
+    return res.status(400).json(new ApiError(400, "Session ID not provided"));
+  }
+
+  if (!sessionName && !categoryId && !imageLocalPath) {
     return res.status(400).json(new ApiError(400, "No data provided to update"));
   }
 
-  const { name, description } = req.body;
-  const imageLocalPath = req.file?.path;
-
-  if (name && name.trim() === "") {
-    return res.status(400).json(new ApiError(400, "Service Type name cannot be empty"));
+  const existingSession = await Sessions.findById(id);
+  if (!existingSession) {
+    return res.status(404).json(new ApiError(404, "Session not found"));
   }
 
-  const existingService = await ServiceType.findById(req.params.id);
-  if (!existingService) {
-    return res.status(404).json(new ApiError(404, "Service Type not found"));
-  }
+  let image = existingSession.image;
 
-  let image = existingService.image;
   if (imageLocalPath) {
     try {
-      const [deleteResult, uploadResult] = await Promise.all([
-        existingService.image ? deleteFromCloudinary(existingService.image) : Promise.resolve(),
-        uploadOnCloudinary(imageLocalPath)
-      ]);
-      if (!uploadResult?.url) {
-        return res.status(400).json(new ApiError(400, "Error while uploading image"));
+      if (existingSession.image) {
+        await deleteFromCloudinary(existingSession.image);
       }
-      image = uploadResult.url;
+
+      const uploadedImage = await uploadOnCloudinary(imageLocalPath);
+      if (!uploadedImage?.url) {
+        return res.status(400).json(new ApiError(400, "Image upload failed"));
+      }
+
+      image = uploadedImage.url;
     } catch (error) {
       return res.status(500).json(new ApiError(500, "Image handling failed"));
     }
   }
 
-const updatedServiceType = await ServiceType.findByIdAndUpdate(
-    req.params.id,
-    { name, description, image, updated_by: req.user._id },
+  const updatedSession = await Sessions.findByIdAndUpdate(
+    id,
+    {
+      sessionName: sessionName || existingSession.sessionName,
+      categoryId: categoryId || existingSession.categoryId,
+      image,
+      updated_by: req.user._id
+    },
     { new: true }
   );
-    return res.status(200).json(new ApiResponse(200, updatedServiceType, "Service Type updated successfully"));
+
+  res.status(200).json(new ApiResponse(200, updatedSession, "Session updated successfully"));
 });
 
 
-// Delete ServiceType
-const deleteServiceType = asyncHandler(async (req, res) => {
+
+// Delete Sessions
+const deleteSession = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const serviceType = await ServiceType.findByIdAndDelete(id);
-  if (!serviceType) {
-    return res.status(404).json(new ApiError(404, "Service Type not found"));
+
+  const session = await Sessions.findById(id);
+  if (!session) {
+    return res.status(404).json(new ApiError(404, "Session not found"));
   }
-  res.status(200).json(new ApiResponse(200, "Service Type deleted successfully"));
+
+  if (session.image) {
+    await deleteFromCloudinary(session.image);
+  }
+
+  await Sessions.findByIdAndDelete(id);
+
+  res.status(200).json(new ApiResponse(200, null, "Session deleted successfully"));
 });
+
 
 
 
@@ -612,125 +858,6 @@ const deleteBreed = asyncHandler(async (req, res) => {
 })
 
 
-//////////////////////////////////////////////////// PET TYPE /////////////////////////////////////////////////////////////
-// Create PetType
-const createPetType = asyncHandler(async (req, res) => {
-  console.log("req.params", req.params)
-  console.log("req.body", req.body)
-
-  try {
-    const { name } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ message: 'Pet type name is required.' });
-    }
-
-    const existingType = await PetType.findOne({ name: name.toLowerCase() });
-    if (existingType) {
-      return res.status(400).json({ message: 'Pet type already exists.' });
-    }
-
-    const newPetType = new PetType({
-      name: name.toLowerCase(),
-      created_by: req.user?._id || null,
-    });
-
-    await newPetType.save();
-
-    res.status(201).json({ message: 'Pet type created successfully.', data: newPetType });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while creating pet type.', error: error.message });
-  }
-});
-
-
-// Update PetType
-const updatePetType = asyncHandler(async (req, res) => {
-  console.log("req.params", req.params);
-  console.log("req.body", req.body);
-
-  try {
-    const { PetTypeId } = req.params;
-    const { name } = req.body;
-
-    const updatedData = {};
-    if (name) updatedData.name = name.toLowerCase();
-
-    const petType = await PetType.findByIdAndUpdate(
-      PetTypeId,
-      updatedData,
-      { new: true }
-    );
-
-    if (!petType) {
-      return res.status(404).json({ message: 'Pet type not found.' });
-    }
-
-    res.status(200).json({ message: 'Pet type updated successfully.', data: petType });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while updating pet type.', error: error.message });
-  }
-});
-
-
-// Get single PetType by ID
-const getPetType = asyncHandler(async (req, res) => {
-  console.log("req.params", req.params)
-  console.log("req.body", req.body)
-
-  try {
-    const { id } = req.params;
-
-    const petType = await PetType.findById(id);
-    if (!petType) {
-      return res.status(404).json({ message: 'Pet type not found.' });
-    }
-
-    res.status(200).json({ data: petType });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while retrieving pet type.', error: error.message });
-  }
-});
-
-
-// Get all PetTypes
-const getAllPetTypes = asyncHandler(async (req, res) => {
-  console.log("req.params", req.params)
-  console.log("req.body", req.body)
-
-  try {
-    const petTypes = await PetType.find().sort({ name: 1 });
-
-    res.status(200).json({ data: petTypes });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while retrieving pet types.', error: error.message });
-  }
-});
-
-
-// Delete PetType
-const deletePetType = asyncHandler(async (req, res) => {
- 
-  try {
-    const { id } = req.params;
-
-    const breedExists = await Breed.findOne({ petTypeId: id });
-
-    if (breedExists) {
-      return res.status(203).json({ 
-        message: 'Cannot delete pet type. It is referenced in one or more breeds.' 
-      });
-    }
-    const petType = await PetType.findByIdAndDelete(id);
-    if (!petType) {
-      return res.status(404).json({ message: 'Pet type not found.' });
-    }
-
-    res.status(200).json({ message: 'Pet type deleted successfully.' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while deleting pet type.', error: error.message });
-  }
-});
 
 // create tax master
 const createTaxMaster = asyncHandler(async (req, res) => {
@@ -746,12 +873,12 @@ const createTaxMaster = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, `Missing required field: ${missingFields.join(', ')}`));
   }
 
-  if (country) {
-    const countryExists = await Country.findById(country);
-    if (!countryExists) {
-      return res.status(404).json(new ApiError(404, "Country not found"));
-    }
-  }
+  // if (country) {
+  //   const countryExists = await Country.findById(country);
+  //   if (!countryExists) {
+  //     return res.status(404).json(new ApiError(404, "Country not found"));
+  //   }
+  // }
 
   const createdTaxMaster = await TaxMaster.create({
     name,
@@ -781,12 +908,12 @@ const updateTaxMaster = asyncHandler(async (req, res) => {
 
   const { name, rate, country, is_active } = req.body;
 
-  if (country) {
-    const countryExists = await Country.findById(country);
-    if (!countryExists) {
-      return res.status(404).json(new ApiError(404, "Country not found"));
-    }
-  }
+  // if (country) {
+  //   const countryExists = await Country.findById(country);
+  //   if (!countryExists) {
+  //     return res.status(404).json(new ApiError(404, "Country not found"));
+  //   }
+  // }
 
   const updatedTaxMaster = await TaxMaster.findByIdAndUpdate(
     req.params.id,
@@ -998,251 +1125,161 @@ const deleteTaxMaster = asyncHandler(async (req, res) => {
 // Get ExtraCharge by ID
 
 /**-*** */
-const createExtraCharge = asyncHandler(async (req, res) => {
-  const { extraprice, is_default = false } = req.body;
-  const created_by = req.user?._id || null;
+// const createExtraCharge = asyncHandler(async (req, res) => {
+//   const { extraprice, is_default = false } = req.body;
+//   const created_by = req.user?._id || null;
 
-  if (extraprice === undefined || extraprice === null) {
-    throw new ApiError(400, "Extraprice is required");
-  }
+//   if (extraprice === undefined || extraprice === null) {
+//     throw new ApiError(400, "Extraprice is required");
+//   }
 
-  const extraCharge = await ExtraCharge.create({
-    extraprice,
-    is_default,
-    created_by,
-  });
+//   const extraCharge = await ExtraCharge.create({
+//     extraprice,
+//     is_default,
+//     created_by,
+//   });
 
-  res
-    .status(201)
-    .json(new ApiResponse(201, extraCharge, "Extra charge created successfully"));
-});
+//   res
+//     .status(201)
+//     .json(new ApiResponse(201, extraCharge, "Extra charge created successfully"));
+// });
 
-// Update ExtraCharge
-const updateExtraCharge = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { extraprice, is_default } = req.body;
-  const updated_by = req.user?._id || null;
+// // Update ExtraCharge
+// const updateExtraCharge = asyncHandler(async (req, res) => {
+//   const { id } = req.params;
+//   const { extraprice, is_default } = req.body;
+//   const updated_by = req.user?._id || null;
 
-  const extraCharge = await ExtraCharge.findById(id);
-  if (!extraCharge) {
-    throw new ApiError(404, "Extra charge not found");
-  }
+//   const extraCharge = await ExtraCharge.findById(id);
+//   if (!extraCharge) {
+//     throw new ApiError(404, "Extra charge not found");
+//   }
 
-  const updateData = { updated_by };
-  if (extraprice !== undefined) updateData.extraprice = extraprice;
-  if (is_default !== undefined) updateData.is_default = is_default;
+//   const updateData = { updated_by };
+//   if (extraprice !== undefined) updateData.extraprice = extraprice;
+//   if (is_default !== undefined) updateData.is_default = is_default;
 
-  const updatedExtraCharge = await ExtraCharge.findByIdAndUpdate(id, updateData, {
-    new: true,
-  });
+//   const updatedExtraCharge = await ExtraCharge.findByIdAndUpdate(id, updateData, {
+//     new: true,
+//   });
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, updatedExtraCharge, "Extra charge updated successfully"));
-});
+//   res
+//     .status(200)
+//     .json(new ApiResponse(200, updatedExtraCharge, "Extra charge updated successfully"));
+// });
 
-const getExtraChargeById = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+// const getExtraChargeById = asyncHandler(async (req, res) => {
+//   const { id } = req.params;
 
-  const extraCharge = await ExtraCharge.findById(id)
-    .populate("created_by", "name")
-    .populate("updated_by", "name");
+//   const extraCharge = await ExtraCharge.findById(id)
+//     .populate("created_by", "name")
+//     .populate("updated_by", "name");
 
-  if (!extraCharge) {
-    throw new ApiError(404, "Extra charge not found");
-  }
+//   if (!extraCharge) {
+//     throw new ApiError(404, "Extra charge not found");
+//   }
 
-  res.status(200).json(new ApiResponse(200, extraCharge));
-});
+//   res.status(200).json(new ApiResponse(200, extraCharge));
+// });
 
-// Get All ExtraCharges
-const getAllExtraCharges = asyncHandler(async (req, res) => {
-  console.log("req.body", req.body);
+// // Get All ExtraCharges
+// const getAllExtraCharges = asyncHandler(async (req, res) => {
+//   console.log("req.body", req.body);
 
-  let { filter = {}, sortOrder = -1 } = req.body;
+//   let { filter = {}, sortOrder = -1 } = req.body;
 
-  const extraCharges = await ExtraCharge.find(filter)
-    // .sort({ createdAt: sortOrder })
-    // .populate("created_by", "name")
-    // .populate("updated_by", "name");
+//   const extraCharges = await ExtraCharge.find(filter)
+//     // .sort({ createdAt: sortOrder })
+//     // .populate("created_by", "name")
+//     // .populate("updated_by", "name");
 
-  res.status(200).json(new ApiResponse(200, extraCharges));
-});
+//   res.status(200).json(new ApiResponse(200, extraCharges));
+// });
 
-// Delete ExtraCharge
-const deleteExtraCharge = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+// // Delete ExtraCharge
+// const deleteExtraCharge = asyncHandler(async (req, res) => {
+//   const { id } = req.params;
 
-  const extraCharge = await ExtraCharge.findByIdAndDelete(id);
-  if (!extraCharge) {
-    throw new ApiError(404, "Extra charge not found");
-  }
+//   const extraCharge = await ExtraCharge.findByIdAndDelete(id);
+//   if (!extraCharge) {
+//     throw new ApiError(404, "Extra charge not found");
+//   }
 
-  res.status(200).json(new ApiResponse(200, null, "Extra charge deleted successfully"));
-});
+//   res.status(200).json(new ApiResponse(200, null, "Extra charge deleted successfully"));
+// });
 
-// VACCINE CONTROLLER
 
-// Create Vaccine
-const createVaccine = asyncHandler(async (req, res) => {
-  const { name, manufacturer } = req.body;
-
-  const requiredFields = {
-    name: (value) => value !== undefined && value !== null && value.trim() !== "",
-    manufacturer: (value) => value !== undefined && value !== null && value.trim() !== "",
-  };
-
-  const missingFields = Object.entries(requiredFields)
-    .filter(([field, checkFn]) => !checkFn(req.body[field]))
-    .map(([field]) => field);
-
-  if (missingFields.length > 0) {
-    return res.status(400).json(
-      new ApiError(400, `Missing or invalid fields: ${missingFields.join(", ")}`)
-    );
-  }
-
-  const vaccine = await Vaccine.create({
-    name,
-    manufacturer,
-    created_by: req.user?._id || null,
-  });
-
-  res
-    .status(201)
-    .json(new ApiResponse(201, vaccine, "Vaccine created successfully"));
-});
-
-// Get all Vaccines
-const getAllVaccines = asyncHandler(async (req, res) => {
-  const vaccines = await Vaccine.find();
-  if(!vaccines){
-    return res.status(400).json(
-      new ApiError(400, `vaccome not found`)
-    );
-  }
-  res
-    .status(200)
-    .json(new ApiResponse(200, vaccines, "Vaccines fetched successfully"));
-});
-
-// Get Vaccine by ID
-const getVaccineById = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  if (!id) {
-    return res.status(400).json(new ApiError(400, "Vaccine ID is required"));
-  }
-
-  const vaccine = await Vaccine.findById(id);
-  if (!vaccine) {
-    return res.status(404).json(new ApiError(404, "Vaccine not found"));
-  }
-
-  res
-    .status(200)
-    .json(new ApiResponse(200, vaccine, "Vaccine fetched successfully"));
-});
-
-// Update Vaccine
-const updateVaccine = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { name, manufacturer } = req.body;
-
-  if (!id || id === "undefined") {
-    return res.status(400).json(new ApiError(400, "ID not provided"));
-  }
-
-  if (Object.keys(req.body).length === 0) {
-    return res.status(400).json(new ApiError(400, "No data provided to update"));
-  }
-
-  if (name && name.trim() === "") {
-    return res.status(400).json(new ApiError(400, "Vaccine name cannot be empty"));
-  }
-
-  if (manufacturer && manufacturer.trim() === "") {
-    return res.status(400).json(new ApiError(400, "Manufacturer cannot be empty"));
-  }
-
-  const existingVaccine = await Vaccine.findById(id);
-  if (!existingVaccine) {
-    return res.status(404).json(new ApiError(404, "Vaccine not found"));
-  }
-
-  existingVaccine.name = name || existingVaccine.name;
-  existingVaccine.manufacturer = manufacturer || existingVaccine.manufacturer;
-  await existingVaccine.save();
-
-  res
-    .status(200)
-    .json(new ApiResponse(200, existingVaccine, "Vaccine updated successfully"));
-});
-
-// Delete Vaccine
-const deleteVaccine = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  const vaccine = await Vaccine.findByIdAndDelete(id);
-  if (!vaccine) {
-    return res.status(404).json(new ApiError(404, "Vaccine not found"));
-  }
-
-  res.status(200).json(new ApiResponse(200, null, "Vaccine deleted successfully"));
-});
 
 export {
+   createTenure,
+  getAllTenure,
+  getSingleTenure,
+  updateTenure,
+  deleteTenure,
+  createSession,
+getAllSessions,
+getSessionById,
+updateSession,
+deleteSession,
+  createCategory,
+  getAllCategory,
+  deleteCategory,
+  updateCategory,
+  getSingleCategory,
   createRole,
   updateRole,
-  getRoleById,
+  // getRoleById,
   getAllRole,
   getAllActiveRole, 
 
-  createCountry,
-  updateCountry,
-  getAllCountry,
-  getCountryById,
-  deleteAllCountry,
-
-  createCity,
-  updateCity,
-  getAllCity,
-  getCityById,
-  deleteAllCities,
-
-  createServiceType,
-  getAllServiceTypes,
-  getServiceTypeById,
-  updateServiceType,
-  deleteServiceType,
-
-  createBreed,
-  updateBreed,
-  getBreedById,
-  getAllBreed,
-  deleteBreed,
-
-  createPetType,
-  updatePetType,
-  getPetType,
-  getAllPetTypes,
-  deletePetType,
-
-  createTaxMaster,
+   createTaxMaster,
   updateTaxMaster,
   getAllTaxMaster,
   getAllTax,
   getTaxMasterById,
   deleteTaxMaster,
 
-  createExtraCharge,
-  updateExtraCharge,
-  getExtraChargeById,
-  getAllExtraCharges,
-  deleteExtraCharge,
+  // createCountry,
+  // updateCountry,
+  // getAllCountry,
+  // getCountryById,
+  // deleteAllCountry,
 
-  createVaccine,
-  getAllVaccines,
-  getVaccineById,
-  updateVaccine,
-  deleteVaccine
+  // createCity,
+  // updateCity,
+  // getAllCity,
+  // getCityById,
+  // deleteAllCities,
+
+  // createServiceType,
+  // getAllServiceTypes,
+  // getServiceTypeById,
+  // updateServiceType,
+  // deleteServiceType,
+
+  // createBreed,
+  // updateBreed,
+  // getBreedById,
+  // getAllBreed,
+  // deleteBreed,
+
+  // createPetType,
+  // updatePetType,
+  // getPetType,
+  // getAllPetTypes,
+  // deletePetType,
+
+ 
+
+  // createExtraCharge,
+  // updateExtraCharge,
+  // getExtraChargeById,
+  // getAllExtraCharges,
+  // deleteExtraCharge,
+
+  // createVaccine,
+  // getAllVaccines,
+  // getVaccineById,
+  // updateVaccine,
+  // deleteVaccine
 };

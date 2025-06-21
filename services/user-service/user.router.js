@@ -10,7 +10,7 @@ import{
     getAllUser,
     getUserById,
     deleteUser,
-    getAllCustomerService,
+    // getAllCustomerService,
     getAllSubserviceByService,
     getSubserviceBySubServiceId,
     createAddress,
@@ -22,10 +22,10 @@ import{
     updateSubServiceRatingReview,
     getAllSubServiceRatingReviews,
     getSubServiceRatingReviewByUser,
-    createGroomerRatingReview,
-    updateGroomerRatingReview,
-    getAllGroomerReviews,
-    getGroomerRatingReviewByUser,
+    createTrainerRatingReview,
+    updateTrainerRatingReview,
+    getAllTrainerReviews,
+    getTrainerRatingReviewByUser,
     calculateCartTotal,
     getAllSubServicesRatingReviews,
     getAdminDetails,
@@ -45,7 +45,7 @@ router.route("/get-userby-id/:id").get(verifyJWT,  getUserById);
 router.route("/update-user/:id").put(verifyJWT, multer.uploadSingle("profile_image"), updateUser);
 router.route("/delete-user/:id").delete(verifyJWT, adminOnly, deleteUser);
 
-router.route("/get-all-services").get(getAllCustomerService);
+// router.route("/get-all-services").get(getAllCustomerService);
 router.route("/get-all-sub-service/:serviceId").get(getAllSubserviceByService);
 router.route("/get-sub-service/:subServiceId").get(getSubserviceBySubServiceId);
 
@@ -58,16 +58,16 @@ router.route("/delete-address/:id").delete(verifyJWT, customerOnly, deleteAddres
 
 router.route("/create-subservice-rating-review").post(verifyJWT,customerOnly,createSubServiceRatingReview);
 router.route("/update-subservice-review/:subServiceId").put(verifyJWT,customerOnly, updateSubServiceRatingReview);
-// router.route("/delete-groomer-review-images/:id").patch(verifyJWT, customerOnly, updateGroomerRatingReview);
+// router.route("/delete-trainer-review-images/:id").patch(verifyJWT, customerOnly, updateTrainerRatingReview);
 router.route("/get-rating-review/:subServiceId").get(verifyJWT,customerOnly,getSubServiceRatingReviewByUser);
 router.route("/get-all-subservice-rating-review/:subServiceId").get(verifyJWT,customerOnly,getAllSubServiceRatingReviews);
 router.route("/get-all-subservice-rating-review").get(verifyJWT,customerOnly,getAllSubServicesRatingReviews);
 
 
-router.route("/create-groomer-rating-review").post(verifyJWT,customerOnly,createGroomerRatingReview);
-router.route("/update-groomer-review/:groomerId").put(verifyJWT,customerOnly, updateGroomerRatingReview);
-router.route("/get-groomer-review/:groomerId").get(verifyJWT, getGroomerRatingReviewByUser);
-router.route("/get-all-groomer-reviews").get(verifyJWT, getAllGroomerReviews);
+router.route("/create-trainer-rating-review").post(verifyJWT,customerOnly,createTrainerRatingReview);
+router.route("/update-trainer-review/:trainerId").put(verifyJWT,customerOnly, updateTrainerRatingReview);
+router.route("/get-trainer-review/:trainerId").get(verifyJWT, getTrainerRatingReviewByUser);
+router.route("/get-all-trainer-reviews").get(verifyJWT, getAllTrainerReviews);
 
 
 router.route("/cart-total-price-calculate").post(verifyJWT,customerOnly,calculateCartTotal);

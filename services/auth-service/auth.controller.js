@@ -73,11 +73,15 @@ const registerUser = asyncHandler(async (req, res) => {
     first_name,
     last_name,
     country,
-    password,
-    uid
+    city,
+    gender,
+    address,
+    profile_image,
+    age,
+    password
   } = req.body;
 
-  const userUid = uid || req.user?.uid || "";
+  // const userUid = uid || req.user?.uid || "";
 
   const requiredFields = {
     email,
@@ -116,8 +120,13 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const user = await User.create({
     // uid: req.user?.uid || "",
-    uid: userUid,
+    // uid: userUid,
     email,
+    city,
+    gender,
+    address,
+    profile_image,
+    age,
     user_role: userRole?._id,
     first_name,
     last_name,
@@ -206,7 +215,7 @@ const loginUser = asyncHandler(async (req, res) => {
       } else {
         user = await User.findOne({
           phone_number: emailOrPhone,
-          uid: req.user?.uid,
+          // uid: req.user?.uid,
         }).populate("user_role");
          
       }

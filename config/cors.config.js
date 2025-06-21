@@ -31,7 +31,5 @@ export const whiteListCors = [
     'https://groomer.nablean.com',
     'http://localhost:3000/',
     'http://localhost:3001/',
-    'http://192.168.1.8:3001',
-    'http://192.168.1.8:3000',
     "*"
 ]

@@ -5,10 +5,10 @@ import bcrypt from "bcrypt";
 
 const userSchema = new Schema(
   {
-    uid: {
-      type: String,
-      unique: true,
-    },
+    // uid: {
+    //   type: String,
+    //   unique: true,
+    // },
     email: {
       type: String,
       required: true,
@@ -117,22 +117,15 @@ const userSchema = new Schema(
       type : Number,
       default : 0
     },
-    serviceProvider : [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "ServiceType",
-        default : null,
-      }
-    ],
-    location: {
-      type: {
-        type: String,
-        enum: ["Point"],
-      },
-      coordinates: {
-        type: [Number], //[longitude, latitude]
-      },
-    },
+    // location: {
+    //   type: {
+    //     type: String,
+    //     enum: ["Point"],
+    //   },
+    //   coordinates: {
+    //     type: [Number], //[longitude, latitude]
+    //   },
+    // },
   },
   {
     timestamps: true,
