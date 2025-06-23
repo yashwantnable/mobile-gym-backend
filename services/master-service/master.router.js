@@ -22,16 +22,16 @@ import {
   getAllTax,
   getTaxMasterById,
   deleteTaxMaster,
-  // createCountry,
-  // updateCountry,
-  // getAllCountry,
-  // getCountryById,
-  // deleteAllCountry,
-  // createCity,
-  // updateCity,
-  // getAllCity,
-  // getCityById,
-  // deleteAllCities,
+  createCountry,
+  updateCountry,
+  getAllCountry,
+  getCountryById,
+  deleteAllCountry,
+  createCity,
+  updateCity,
+  getAllCity,
+  getCityById,
+  deleteAllCities,
   // createServiceType,
   // getAllServiceTypes,
   // getServiceTypeById,
@@ -88,10 +88,10 @@ router.route("/get-all-tax").get(verifyJWT, getAllTax)
 router.route("/delete-tax-master-by-id/:id").delete(verifyJWT, adminOnly, deleteTaxMaster)
 
 //session masters
-router.route("/create-session").post(verifyJWT, adminOnly, createSession);
+router.route("/create-session").post(verifyJWT, adminOnly, multer.uploadSingle("image"), createSession);
 router.route("/get-all-sessions").get(verifyJWT, getAllSessions);
 router.route("/get-session-by-id/:id").get(verifyJWT, getSessionById);
-router.route("/update-session/:id").put(verifyJWT, adminOnly, updateSession);
+router.route("/update-session/:id").put(verifyJWT, adminOnly,multer.uploadSingle("image"), updateSession);
 router.route("/delete-session/:id").delete(verifyJWT, adminOnly, deleteSession);
 
 //category masters
@@ -108,18 +108,18 @@ router.route("/get-all-role").post(verifyJWT, getAllRole);
 router.route("/get-active-role").get(verifyJWT, getAllActiveRole);
 
 // // routes for Country
-// router.route("/create-country").post(createCountry);
-// router.route("/update-country/:countryId").put(updateCountry);
-// router.route("/get-all-country").get(getAllCountry);
-// router.route("/get-country/:id").get(getCountryById);
-// router.route("/delete-all-country").delete(deleteAllCountry);
+router.route("/create-country").post(createCountry);
+router.route("/update-country/:countryId").put(updateCountry);
+router.route("/get-all-country").get(getAllCountry);
+router.route("/get-country/:id").get(getCountryById);
+router.route("/delete-all-country").delete(deleteAllCountry);
 
 // // routes for City
-// router.route("/create-city").post(createCity);
-// router.route("/update-city/:cityId").put(updateCity);
-// router.route("/get-all-city/:countryId").get(getAllCity);
-// router.route("/get-city/:id").get(getCityById);
-// router.route("/delete-all-city").delete(deleteAllCities);
+router.route("/create-city").post(createCity);
+router.route("/update-city/:cityId").put(updateCity);
+router.route("/get-all-city/:countryId").get(getAllCity);
+router.route("/get-city/:id").get(getCityById);
+router.route("/delete-all-city").delete(deleteAllCities);
 
 // //service route
 // router.route("/create-service").post(verifyJWT,adminOnly, multer.uploadSingle("image"), createServiceType);

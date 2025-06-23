@@ -23,7 +23,7 @@ const firestore = admin.firestore();
 import nodemailer from "nodemailer";
 import bcrypt from "bcrypt";
 
-// Create Groomer
+// Create trainer
 const createTrainer = asyncHandler(async (req, res) => {
   console.log("req.body", req.body)
 
@@ -51,10 +51,10 @@ const createTrainer = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "Email or Phone already exists"));
   }
 
-  const groomerRole = await UserRole.findOne({ name: "groomer" });
+  const trainerRole = await UserRole.findOne({ name: "trainer" });
 
-  if (!groomerRole) {
-    return res.status(400).json(new ApiError(400, "Groomer role not found"));
+  if (!trainerRole) {
+    return res.status(400).json(new ApiError(400, "Trainer role not found"));
   }
 
   let profile_image = null;
@@ -80,10 +80,10 @@ const createTrainer = asyncHandler(async (req, res) => {
     }
   }
 
-  const groomer = await User.create({
+  const trainer = await User.create({
     uid: req.user?.uid || "",
     email,
-    user_role: groomerRole._id,
+    user_role: trainerRole._id,
     first_name,
     last_name,
     phone_number,
@@ -101,66 +101,66 @@ const createTrainer = asyncHandler(async (req, res) => {
     status: "Pending",
   });
 
-  const createdGroomer = await User.findById(groomer._id)
+  const createdtrainer = await User.findById(trainer._id)
     .select("-password -refreshToken -otp -otp_time -uid")
     .populate("user_role country city");
 
-  res.status(201).json(new ApiResponse(201, createdGroomer, "Groomer registered successfully"));
+  res.status(201).json(new ApiResponse(201, createdtrainer, "trainer registered successfully"));
 });
 
 
-// Get All Groomers
+// Get All trainers
 const getAllTrainer = asyncHandler(async (req, res) => {
   const users = await User.find()
     .populate("user_role country city")
     .select("-password -refreshToken -otp -otp_time");
 
-  const groomers = users.filter(
-    (user) => user.user_role && user.user_role.name === "groomer"
+  const trainers = users.filter(
+    (user) => user.user_role && user.user_role.name === "trainer"
   );
 
-  res.status(200).json(new ApiResponse(200, groomers, "Groomers fetched successfully"));
+  res.status(200).json(new ApiResponse(200, trainers, "trainers fetched successfully"));
 });
 
 
-// Get Groomer By ID
+// Get trainer By ID
 const getTrainerrById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  if (!id) return res.status(400).json(new ApiError(400, "Groomer ID is required"));
+  if (!id) return res.status(400).json(new ApiError(400, "trainer ID is required"));
 
-  const groomer = await User.findById(id)
+  const trainer = await User.findById(id)
     .populate("user_role country city")
     .select("-password -refreshToken -otp -otp_time");
 
-  if (!groomer) return res.status(404).json(new ApiError(404, "Groomer not found"));
+  if (!trainer) return res.status(404).json(new ApiError(404, "trainer not found"));
 
-  if (groomer.user_role.name !== "groomer") {
-    return res.status(403).json(new ApiError(403, "User is not a groomer"));
+  if (trainer.user_role.name !== "trainer") {
+    return res.status(403).json(new ApiError(403, "User is not a trainer"));
   }
 
-  res.status(200).json(new ApiResponse(200, groomer, "Groomer fetched successfully"));
+  res.status(200).json(new ApiResponse(200, trainer, "trainer fetched successfully"));
 });
 
 
-// Update Groomer
+// Update trainer
 const updateTrainer = asyncHandler(async (req, res) => {
   if (!req.params.id || req.params.id === "undefined") {
-    return res.status(400).json(new ApiError(400, "Groomer ID not provided"));
+    return res.status(400).json(new ApiError(400, "trainer ID not provided"));
   }
 
-  const existingGroomer = await User.findById(req.params.id);
-  if (!existingGroomer) {
-    return res.status(404).json(new ApiError(404, "Groomer not found"));
+  const existingtrainer = await User.findById(req.params.id);
+  if (!existingtrainer) {
+    return res.status(404).json(new ApiError(404, "trainer not found"));
   }
 
   const imageLocalPath = req.file?.path;
-  let profile_image = existingGroomer.profile_image;
+  let profile_image = existingtrainer.profile_image;
 
   if (imageLocalPath) {
     const [_, uploadResult] = await Promise.all([
-      existingGroomer.profile_image
-        ? deleteFromCloudinary(existingGroomer.profile_image)
+      existingtrainer.profile_image
+        ? deleteFromCloudinary(existingtrainer.profile_image)
         : Promise.resolve(),
       uploadOnCloudinary(imageLocalPath),
     ]);
@@ -171,43 +171,43 @@ const updateTrainer = asyncHandler(async (req, res) => {
     profile_image = uploadResult.url;
   }
 
-  const updatedGroomer = await User.findByIdAndUpdate(
+  const updatedtrainer = await User.findByIdAndUpdate(
     req.params.id,
     { ...req.body, profile_image },
     { new: true }
   ).populate("user_role country city");
 
-  res.status(200).json(new ApiResponse(200, updatedGroomer, "Groomer updated successfully"));
+  res.status(200).json(new ApiResponse(200, updatedtrainer, "trainer updated successfully"));
 });
 /**--------- */
-const updateGroomerProfileByTrainer = asyncHandler(async (req, res) => {
-  const groomerId = req.params.id;
+const updateTrainerProfileByTrainer = asyncHandler(async (req, res) => {
+  const trainerId = req.params.id;
 
-  if (!groomerId || groomerId === "undefined") {
-    return res.status(400).json(new ApiError(400, "Groomer ID not provided"));
+  if (!trainerId || trainerId === "undefined") {
+    return res.status(400).json(new ApiError(400, "trainer ID not provided"));
   }
 
-  const existingGroomer = await User.findById(groomerId).populate("user_role");
+  const existingtrainer = await User.findById(trainerId).populate("user_role");
 
-  if (!existingGroomer) {
-    return res.status(404).json(new ApiError(404, "Groomer not found"));
+  if (!existingtrainer) {
+    return res.status(404).json(new ApiError(404, "trainer not found"));
   }
 
   if (
-    !existingGroomer.user_role ||
-    existingGroomer.user_role.role_id !== 2 ||
-    existingGroomer.user_role.name !== "groomer"
+    !existingtrainer.user_role ||
+    existingtrainer.user_role.role_id !== 2 ||
+    existingtrainer.user_role.name !== "trainer"
   ) {
-    return res.status(403).json(new ApiError(403, "User is not authorized as a groomer"));
+    return res.status(403).json(new ApiError(403, "User is not authorized as a trainer"));
   }
 
   const imageLocalPath = req.file?.path;
-  let profile_image = existingGroomer.profile_image;
+  let profile_image = existingtrainer.profile_image;
 
   if (imageLocalPath) {
     const [_, uploadResult] = await Promise.all([
-      existingGroomer.profile_image
-        ? deleteFromCloudinary(existingGroomer.profile_image)
+      existingtrainer.profile_image
+        ? deleteFromCloudinary(existingtrainer.profile_image)
         : Promise.resolve(),
       uploadOnCloudinary(imageLocalPath),
     ]);
@@ -221,88 +221,88 @@ const updateGroomerProfileByTrainer = asyncHandler(async (req, res) => {
 
   // Only allowed fields
   const allowedFields = {
-    first_name: req.body.first_name ?? existingGroomer.first_name,
-    last_name: req.body.last_name ?? existingGroomer.last_name,
-    address: req.body.address ?? existingGroomer.address,
-    phone_number: req.body.phone_number ?? existingGroomer.phone_number,
-    experience: req.body.experience ?? existingGroomer.experience,
-    userStatus: req.body.userStatus ?? existingGroomer.userStatus,
-    country: req.body.country ?? existingGroomer.country,
-    city: req.body.city ?? existingGroomer.city,
-    age: req.body.age ?? existingGroomer.age,
-    gender: req.body.gender ?? existingGroomer.gender,
+    first_name: req.body.first_name ?? existingtrainer.first_name,
+    last_name: req.body.last_name ?? existingtrainer.last_name,
+    address: req.body.address ?? existingtrainer.address,
+    phone_number: req.body.phone_number ?? existingtrainer.phone_number,
+    experience: req.body.experience ?? existingtrainer.experience,
+    userStatus: req.body.userStatus ?? existingtrainer.userStatus,
+    country: req.body.country ?? existingtrainer.country,
+    city: req.body.city ?? existingtrainer.city,
+    age: req.body.age ?? existingtrainer.age,
+    gender: req.body.gender ?? existingtrainer.gender,
     profile_image,
   };
 
-  const updatedGroomer = await User.findByIdAndUpdate(
-    groomerId,
+  const updatedtrainer = await User.findByIdAndUpdate(
+    trainerId,
     allowedFields,
     { new: true }
   ).populate("user_role country city");
 
-  res.status(200).json(new ApiResponse(200, updatedGroomer, "Groomer profile updated successfully"));
+  res.status(200).json(new ApiResponse(200, updatedtrainer, "trainer profile updated successfully"));
 });
 
 
 
-// Delete Groomer
+// Delete trainer
 const deleteTrainer = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   if (!id || id === "undefined") {
-    return res.status(400).json(new ApiError(400, "Groomer ID not provided"));
+    return res.status(400).json(new ApiError(400, "trainer ID not provided"));
   }
 
-  const groomer = await User.findById(id);
+  const trainer = await User.findById(id);
 
-  if (!groomer) {
-    return res.status(404).json(new ApiError(404, "Groomer not found"));
+  if (!trainer) {
+    return res.status(404).json(new ApiError(404, "trainer not found"));
   }
 
-  if (groomer.profile_image) {
-    await deleteFromCloudinary(groomer.profile_image);
+  if (trainer.profile_image) {
+    await deleteFromCloudinary(trainer.profile_image);
   }
 
   await User.findByIdAndDelete(id);
 
-  res.status(200).json(new ApiResponse(200, "Groomer deleted successfully"));
+  res.status(200).json(new ApiResponse(200, "trainer deleted successfully"));
 });
 
 
-// Update Groomer Status
+// Update trainer Status
 const updateTrainerStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
 
-  if (!req.params.groomerId || req.params.groomerId === "undefined") {
-    return res.status(400).json(new ApiError(400, "Groomer ID not provided"));
+  if (!req.params.trainerId || req.params.trainerId === "undefined") {
+    return res.status(400).json(new ApiError(400, "trainer ID not provided"));
   }
 
-  const groomer = await User.findById(req.params.groomerId);
-  if (!groomer) {
-    return res.status(404).json(new ApiError(404, "Groomer not found"));
+  const trainer = await User.findById(req.params.trainerId);
+  if (!trainer) {
+    return res.status(404).json(new ApiError(404, "trainer not found"));
   }
 
-  if (groomer.user_role.name !== "groomer") {
-    return res.status(403).json(new ApiError(403, "User is not a groomer"));
+  if (trainer.user_role.name !== "trainer") {
+    return res.status(403).json(new ApiError(403, "User is not a trainer"));
   }
 
-  const updatedGroomer = await User.findByIdAndUpdate(
-    req.params.groomerId,
+  const updatedtrainer = await User.findByIdAndUpdate(
+    req.params.trainerId,
     { $set: { status } },
     { new: true }
   ).select("-password -refreshToken -otp -otp_time");
 
-  res.status(200).json(new ApiResponse(200, updatedGroomer, "Groomer status updated successfully"));
+  res.status(200).json(new ApiResponse(200, updatedtrainer, "trainer status updated successfully"));
 });
 
 
 // const getAllOrders = asyncHandler(async (req, res) => {
 //   try {
-//     const groomerId = req.user?._id;
-//     console.log("groomerId----------->",groomerId);
+//     const trainerId = req.user?._id;
+//     console.log("trainerId----------->",trainerId);
     
-//     if (!groomerId) {
-//       return res.status(401).json(new ApiError(401, "Unauthorized - Groomer token required"));
+//     if (!trainerId) {
+//       return res.status(401).json(new ApiError(401, "Unauthorized - trainer token required"));
 //     }
 
 //     const today = new Date();
@@ -315,9 +315,9 @@ const updateTrainerStatus = asyncHandler(async (req, res) => {
 //       $lte: tomorrow
 //     };
 
-//     // Fetch orderDetails for this groomer for today and tomorrow
+//     // Fetch orderDetails for this trainer for today and tomorrow
 //     const orderDetails = await OrderDetails.find({
-//       groomer: groomerId
+//       trainer: trainerId
 //     })
 //       .populate({
 //         path: 'order',
@@ -350,9 +350,9 @@ const updateTrainerStatus = asyncHandler(async (req, res) => {
 //         type: "ORDER"
 //       }));
 
-//     // Fetch bookings for this groomer for today and tomorrow
+//     // Fetch bookings for this trainer for today and tomorrow
 //     const bookings = await Booking.find({
-//       groomer: groomerId,
+//       trainer: trainerId,
 //       date: dateFilter
 //     })
 //       .populate('customer', 'first_name last_name')
@@ -383,7 +383,7 @@ const updateTrainerStatus = asyncHandler(async (req, res) => {
 
 //     return res
 //       .status(200)
-//       .json(new ApiResponse(200, combinedData, "Groomer's current and upcoming orders and bookings retrieved"));
+//       .json(new ApiResponse(200, combinedData, "trainer's current and upcoming orders and bookings retrieved"));
 
 //   } catch (err) {
 //     console.error("getAllOrders Error:", err);
@@ -393,7 +393,7 @@ const updateTrainerStatus = asyncHandler(async (req, res) => {
 /**---- */
 const getAllOrders = asyncHandler(async (req, res) => {
   try {
-    const groomerId = req.user._id;
+    const trainerId = req.user._id;
 
     // Dates: today and tomorrow
     const today = new Date();
@@ -403,7 +403,7 @@ const getAllOrders = asyncHandler(async (req, res) => {
 
     // Fetch orderDetails where bookingStatus is "NOT_STARTED"
     const orderDetails = await OrderDetails.find({
-      groomer: groomerId,
+      trainer: trainerId,
       'orderDetails.date': { $gte: today, $lte: tomorrow },
       bookingStatus: 'NOT_STARTED'
     })
@@ -411,7 +411,7 @@ const getAllOrders = asyncHandler(async (req, res) => {
         path: 'order',
         populate: { path: 'created_by', select: 'first_name last_name' }
       })
-      .populate('groomer', 'first_name last_name phone_number')
+      .populate('trainer', 'first_name last_name phone_number')
       .populate('orderDetails.serviceId', 'name')
       .populate('orderDetails.subServiceId', 'name')
       .populate('orderDetails.petTypeId', 'petName')
@@ -442,7 +442,7 @@ const getAllOrders = asyncHandler(async (req, res) => {
 
     // Fetch bookings where status is "NOT_STARTED"
     const bookings = await Booking.find({
-      groomer: groomerId,
+      trainer: trainerId,
       date: { $gte: today, $lte: tomorrow },
       bookingStatus: 'NOT_STARTED'
     })
@@ -475,11 +475,11 @@ const getAllOrders = asyncHandler(async (req, res) => {
     }
 
     return res.status(200).json(
-      new ApiResponse(200, orderData, "Groomer's NOT_STARTED orders and bookings retrieved")
+      new ApiResponse(200, orderData, "trainer's NOT_STARTED orders and bookings retrieved")
     );
 
   } catch (err) {
-    console.error("getAllOrdersForGroomer error:", err);
+    console.error("getAllOrdersFortrainer error:", err);
     return res.status(500).json(new ApiError(500, "Failed to fetch orders and bookings"));
   }
 });
@@ -487,15 +487,15 @@ const getAllOrders = asyncHandler(async (req, res) => {
 // get all assigned jobs
 // const getAllAssignedJobs = asyncHandler(async (req, res) => {
 //   const { page = 1, limit = 10, sortOrder = -1 } = req.body;
-//   const groomerId = new mongoose.Types.ObjectId(req.user._id);
-//   // const groomerId = req.user._id
-// console.log("groomerId------------->",groomerId);
+//   const trainerId = new mongoose.Types.ObjectId(req.user._id);
+//   // const trainerId = req.user._id
+// console.log("trainerId------------->",trainerId);
 
 //   const skip = (page - 1) * limit;
 
 //   // Total count of matching records
 //   const totalCountResult = await OrderDetails.aggregate([
-//     { $match: { groomer: groomerId } },
+//     { $match: { trainer: trainerId } },
 //     { $count: "totalCount" },
 //   ]);
 // console.log("totalCountResult------------------>",totalCountResult);
@@ -505,7 +505,7 @@ const getAllOrders = asyncHandler(async (req, res) => {
 
 //   // Fetch paginated records
 //   const allAssignedJobs = await OrderDetails.aggregate([
-//     { $match: { groomer: groomerId } },
+//     { $match: { trainer: trainerId } },
 //     {
 //       $lookup: {
 //         from: "addresses",
@@ -565,13 +565,13 @@ const getAllOrders = asyncHandler(async (req, res) => {
 
 // const getAllAssignedJobs = asyncHandler(async (req, res) => {
 //   const { page = 1, limit = 10, sortOrder = -1 } = req.body;
-//   const groomerId = new mongoose.Types.ObjectId(req.user._id);
+//   const trainerId = new mongoose.Types.ObjectId(req.user._id);
 
 //   const skip = (page - 1) * limit;
 
 //   // Total count of matching records
 //   const totalCountResult = await OrderDetails.aggregate([
-//     { $match: { groomer: groomerId } },
+//     { $match: { trainer: trainerId } },
 //     { $count: "totalCount" },
 //   ]);
 //   const totalCount = totalCountResult[0]?.totalCount || 0;
@@ -579,7 +579,7 @@ const getAllOrders = asyncHandler(async (req, res) => {
 
 //   // Fetch paginated records with populated fields inside orderDetails only
 //   const allAssignedJobs = await OrderDetails.aggregate([
-//     { $match: { groomer: groomerId } },
+//     { $match: { trainer: trainerId } },
 
 //     // Populate serviceId inside orderDetails
 //     {
@@ -706,12 +706,12 @@ const getAllOrders = asyncHandler(async (req, res) => {
 /**- work good with booking status----*/
 // const getAllAssignedJobs = asyncHandler(async (req, res) => {
 //   const { page = 1, limit = 10, sortOrder = -1, bookingStatus, } = req.body;
-//   const groomerId = new mongoose.Types.ObjectId(req.user._id);
+//   const trainerId = new mongoose.Types.ObjectId(req.user._id);
 
 //   const skip = (page - 1) * limit;
 
 //   // Build the match filter dynamically (includes bookingStatus if provided)
-//   const matchFilter = { groomer: groomerId };
+//   const matchFilter = { trainer: trainerId };
 //   if (bookingStatus) {
 //     matchFilter.bookingStatus = bookingStatus;
 //   }
@@ -853,12 +853,12 @@ const getAllOrders = asyncHandler(async (req, res) => {
 
 const getAllAssignedJobs = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, sortOrder = -1, bookingStatus, date} = req.body;
-  const groomerId = new mongoose.Types.ObjectId(req.user._id);
+  const trainerId = new mongoose.Types.ObjectId(req.user._id);
 
   const skip = (page - 1) * limit;
 
   // Build the match filter dynamically (includes bookingStatus if provided)
-  const matchFilter = { groomer: groomerId };
+  const matchFilter = { trainer: trainerId };
   if (bookingStatus) {
     matchFilter.bookingStatus = bookingStatus;
   }else if(date){
@@ -1019,12 +1019,12 @@ const getAllAssignedJobs = asyncHandler(async (req, res) => {
 /***------9-6-25 6:25PM-- */
 // const getAllAssignedJobs = asyncHandler(async (req, res) => {
 //   const { page = 1, limit = 10, sortOrder = -1, bookingStatus, date } = req.body;
-//   const groomerId = new mongoose.Types.ObjectId(req.user._id);
+//   const trainerId = new mongoose.Types.ObjectId(req.user._id);
 
 //   const skip = (page - 1) * limit;
 
 //   // Build dynamic matchFilter
-//   let matchFilter = { groomer: groomerId };
+//   let matchFilter = { trainer: trainerId };
 
 //   if (bookingStatus && date) {
 //     const selectedDate = new Date(date);
@@ -1241,15 +1241,15 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, orderDetail, "Order detail fetched successfully"));
 });
 
-/*--------------statu update by groomer-----------------*/
+/*--------------statu update by trainer-----------------*/
 // const updateBookingStatus = asyncHandler(async (req, res) => {
 //   const session = await mongoose.startSession();
 //   session.startTransaction();
 
 //   try {
 //     const { orderDetailsId } = req.params;
-//     const { status, groomerLocation } = req.body;
-//     const groomerId = req.user._id;
+//     const { status, trainerLocation } = req.body;
+//     const trainerId = req.user._id;
 
 //     const orderDetail = await OrderDetails.findById(orderDetailsId)
 //       .populate("defaultAddress created_by");
@@ -1258,7 +1258,7 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //       return res.status(404).json({ message: "Order details not found" });
 //     }
 
-//     if (!orderDetail.groomer || orderDetail.groomer.toString() !== groomerId.toString()) {
+//     if (!orderDetail.trainer || orderDetail.trainer.toString() !== trainerId.toString()) {
 //       return res.status(403).json({ message: "Unauthorized action for this booking" });
 //     }
 
@@ -1270,27 +1270,27 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
     
 //     // ON_THE_WAY
 //     if (status === "ON_THE_WAY") {
-//       await User.findByIdAndUpdate(groomerId, {
-//         location: { type: "Point", coordinates: groomerLocation },
+//       await User.findByIdAndUpdate(trainerId, {
+//         location: { type: "Point", coordinates: trainerLocation },
 //       }, { session });
 
 //       await sendNotification(orderDetail.created_by, {
-//         title: "Your groomer is on the way!",
-//         body: "Your groomer has started their journey.",
+//         title: "Your trainer is on the way!",
+//         body: "Your trainer has started their journey.",
 //       });
 //     }
 
 //     // IN_PROGRESS
 //     if (status === "IN_PROGRESS") {
-//       const groomer = await User.findById(groomerId);
+//       const trainer = await User.findById(trainerId);
 //       const customerAddress = await Address.findById(orderDetail.defaultAddress);
 
-//       if (!groomer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
+//       if (!trainer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
 //         return res.status(400).json({ message: "Location data missing" });
 //       }
 
 //       const distance = haversine(
-//         { lat: groomer.location.coordinates[1], lon: groomer.location.coordinates[0] },
+//         { lat: trainer.location.coordinates[1], lon: trainer.location.coordinates[0] },
 //         { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
 //       );
 
@@ -1301,7 +1301,7 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //       }
 
 //       await sendNotification(orderDetail.created_by, {
-//         title: "Groomer has arrived",
+//         title: "trainer has arrived",
 //         body: "Your grooming service has started.",
 //       });
 //     }
@@ -1341,8 +1341,8 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 
 //   try {
 //     const { orderDetailsId } = req.params;
-//     const { status, groomerLocation } = req.body;
-//     const groomerId = req.user._id;
+//     const { status, trainerLocation } = req.body;
+//     const trainerId = req.user._id;
 
 //     const orderDetail = await OrderDetails.findById(orderDetailsId)
 //       .populate("defaultAddress created_by");
@@ -1351,7 +1351,7 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //       return res.status(404).json({ message: "Order details not found" });
 //     }
 
-//     if (!orderDetail.groomer || orderDetail.groomer.toString() !== groomerId.toString()) {
+//     if (!orderDetail.trainer || orderDetail.trainer.toString() !== trainerId.toString()) {
 //       return res.status(403).json({ message: "Unauthorized action for this booking" });
 //     }
 
@@ -1368,14 +1368,14 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //   //     });
 //   // }
 //   //     await User.findByIdAndUpdate(
-//   //       groomerId,
-//   //       { location: { type: "Point", coordinates: groomerLocation } },
+//   //       trainerId,
+//   //       { location: { type: "Point", coordinates: trainerLocation } },
 //   //       { session }
 //   //     );
 
 //   //     await sendNotification(orderDetail.created_by, {
-//   //       title: "Your groomer is on the way!",
-//   //       body: "Your groomer has started their journey.",
+//   //       title: "Your trainer is on the way!",
+//   //       body: "Your trainer has started their journey.",
 //   //     });
 
 //   //     orderDetail.bookingStatus = status;
@@ -1384,15 +1384,15 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 
 //     // IN_PROGRESS
 //     else if (status === "IN_PROGRESS") {
-//       const groomer = await User.findById(groomerId);
+//       const trainer = await User.findById(trainerId);
 //       const customerAddress = await Address.findById(orderDetail.defaultAddress);
 
-//       if (!groomer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
+//       if (!trainer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
 //         return res.status(400).json({ message: "Location data missing" });
 //       }
 
 //       const distance = haversine(
-//         { lat: groomer.location.coordinates[1], lon: groomer.location.coordinates[0] },
+//         { lat: trainer.location.coordinates[1], lon: trainer.location.coordinates[0] },
 //         { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
 //       );
 
@@ -1403,7 +1403,7 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //       }
 
 //       // await sendNotification(orderDetail.created_by, {
-//       //   title: "Groomer has arrived",
+//       //   title: "trainer has arrived",
 //       //   body: "Your grooming service has started.",
 //       // });
 //   try {
@@ -1427,27 +1427,27 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //   }
 
 //   await User.findByIdAndUpdate(
-//     groomerId,
-//     { location: { type: "Point", coordinates: groomerLocation } },
+//     trainerId,
+//     { location: { type: "Point", coordinates: trainerLocation } },
 //     { session }
 //   );
 
 //   // ✅ Push location to Firestore
-//   await admin.firestore().collection("liveLocations").doc(groomerId.toString()).set({
-//     latitude: groomerLocation[1],
-//     longitude: groomerLocation[0],
+//   await admin.firestore().collection("liveLocations").doc(trainerId.toString()).set({
+//     latitude: trainerLocation[1],
+//     longitude: trainerLocation[0],
 //     orderDetailsId: orderDetailsId,
 //     updatedAt: new Date().toISOString(),
 //   });
 
 //   // await sendNotification(orderDetail.created_by, {
-//   //   title: "Your groomer is on the way!",
-//   //   body: "Your groomer has started their journey.",
+//   //   title: "Your trainer is on the way!",
+//   //   body: "Your trainer has started their journey.",
 //   // });
 
 //   const notificationResult = await sendNotification(orderDetail.created_by, {
-//   title: "Your groomer is on the way!",
-//   body: "Your groomer has started their journey.",
+//   title: "Your trainer is on the way!",
+//   body: "Your trainer has started their journey.",
 // });
 
 // if (notificationResult.success) {
@@ -1466,15 +1466,15 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //         return res.status(400).json({ message: "Booking must be in progress to mark it as completed." });
 //       }
 
-//       const groomer = await User.findById(groomerId);
+//       const trainer = await User.findById(trainerId);
 //       const customerAddress = await Address.findById(orderDetail.defaultAddress);
 
-//       if (!groomer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
+//       if (!trainer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
 //         return res.status(400).json({ message: "Location data missing." });
 //       }
 
 //       const distance = haversine(
-//         { lat: groomer.location.coordinates[1], lon: groomer.location.coordinates[0] },
+//         { lat: trainer.location.coordinates[1], lon: trainer.location.coordinates[0] },
 //         { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
 //       );
 
@@ -1522,8 +1522,8 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 
 //   try {
 //     const { orderDetailsId } = req.params;
-//     const { status, groomerLocation } = req.body;
-//     const groomerId = req.user._id;
+//     const { status, trainerLocation } = req.body;
+//     const trainerId = req.user._id;
 
 //     const orderDetail = await OrderDetails.findById(orderDetailsId)
 //       .populate("defaultAddress created_by")
@@ -1533,7 +1533,7 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //       return res.status(404).json({ message: "Order details not found" });
 //     }
 
-//     if (!orderDetail.groomer || orderDetail.groomer.toString() !== groomerId.toString()) {
+//     if (!orderDetail.trainer || orderDetail.trainer.toString() !== trainerId.toString()) {
 //       return res.status(403).json({ message: "Unauthorized action for this booking" });
 //     }
 
@@ -1552,14 +1552,14 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //       }
 
 //       await User.findByIdAndUpdate(
-//         groomerId,
-//         { location: { type: "Point", coordinates: groomerLocation } },
+//         trainerId,
+//         { location: { type: "Point", coordinates: trainerLocation } },
 //         { session }
 //       );
 
-//       await admin.firestore().collection("liveLocations").doc(groomerId.toString()).set({
-//         latitude: groomerLocation[1],
-//         longitude: groomerLocation[0],
+//       await admin.firestore().collection("liveLocations").doc(trainerId.toString()).set({
+//         latitude: trainerLocation[1],
+//         longitude: trainerLocation[0],
 //         orderDetailsId,
 //         updatedAt: new Date().toISOString(),
 //       });
@@ -1568,22 +1568,22 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //       await orderDetail.save({ session });
 
 //       notificationPayload = {
-//         title: "Your groomer is on the way!",
-//         body: "Your groomer has started their journey.",
+//         title: "Your trainer is on the way!",
+//         body: "Your trainer has started their journey.",
 //       };
 //     }
 
 //     // --- IN_PROGRESS ---
 //     else if (status === "IN_PROGRESS") {
-//       const groomer = await User.findById(groomerId).session(session);
+//       const trainer = await User.findById(trainerId).session(session);
 //       const customerAddress = await Address.findById(orderDetail.defaultAddress).session(session);
 
-//       if (!groomer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
+//       if (!trainer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
 //         return res.status(400).json({ message: "Location data missing" });
 //       }
 
 //       const distance = haversine(
-//         { lat: groomer.location.coordinates[1], lon: groomer.location.coordinates[0] },
+//         { lat: trainer.location.coordinates[1], lon: trainer.location.coordinates[0] },
 //         { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
 //       );
 
@@ -1597,7 +1597,7 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //       await orderDetail.save({ session });
 
 //       notificationPayload = {
-//         title: "Groomer has arrived",
+//         title: "trainer has arrived",
 //         body: "Your grooming service has started.",
 //       };
 //     }
@@ -1608,15 +1608,15 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //         return res.status(400).json({ message: "Booking must be in progress to mark it as completed." });
 //       }
 
-//       const groomer = await User.findById(groomerId)
+//       const trainer = await User.findById(trainerId)
 //       const customerAddress = await Address.findById(orderDetail.defaultAddress).session(session);
 
-//       if (!groomer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
+//       if (!trainer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
 //         return res.status(400).json({ message: "Location data missing." });
 //       }
 
 //       const distance = haversine(
-//         { lat: groomer.location.coordinates[1], lon: groomer.location.coordinates[0] },
+//         { lat: trainer.location.coordinates[1], lon: trainer.location.coordinates[0] },
 //         { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
 //       );
 
@@ -1671,8 +1671,8 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 
 //   try {
 //     const { orderDetailsId } = req.params;
-//     const { status, groomerLocation } = req.body;
-//     const groomerId = req.user._id;
+//     const { status, trainerLocation } = req.body;
+//     const trainerId = req.user._id;
 
 //     const orderDetail = await OrderDetails.findById(orderDetailsId)
 //       .populate("defaultAddress created_by")
@@ -1682,7 +1682,7 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //       return res.status(404).json({ message: "Order details not found" });
 //     }
 
-//     if (!orderDetail.groomer || orderDetail.groomer.toString() !== groomerId.toString()) {
+//     if (!orderDetail.trainer || orderDetail.trainer.toString() !== trainerId.toString()) {
 //       return res.status(403).json({ message: "Unauthorized action for this booking" });
 //     }
 
@@ -1701,14 +1701,14 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //       }
 
 //       await User.findByIdAndUpdate(
-//         groomerId,
-//         { location: { type: "Point", coordinates: groomerLocation } },
+//         trainerId,
+//         { location: { type: "Point", coordinates: trainerLocation } },
 //         { session }
 //       );
 
-//       await admin.firestore().collection("liveLocations").doc(groomerId.toString()).set({
-//         latitude: groomerLocation[1],
-//         longitude: groomerLocation[0],
+//       await admin.firestore().collection("liveLocations").doc(trainerId.toString()).set({
+//         latitude: trainerLocation[1],
+//         longitude: trainerLocation[0],
 //         orderDetailsId,
 //         updatedAt: new Date().toISOString(),
 //       });
@@ -1717,22 +1717,22 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //       await orderDetail.save({ session });
 
 //       notificationPayload = {
-//         title: "Your groomer is on the way!",
-//         body: "Your groomer has started their journey.",
+//         title: "Your trainer is on the way!",
+//         body: "Your trainer has started their journey.",
 //       };
 //     }
 
 //     // --- IN_PROGRESS ---
 //     // else if (status === "IN_PROGRESS") {
-//     //   const groomer = await User.findById(groomerId).session(session);
+//     //   const trainer = await User.findById(trainerId).session(session);
 //     //   const customerAddress = await Address.findById(orderDetail.defaultAddress).session(session);
 
-//     //   if (!groomer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
+//     //   if (!trainer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
 //     //     return res.status(400).json({ message: "Location data missing" });
 //     //   }
 
 //     //   const distance = haversine(
-//     //     { lat: groomer.location.coordinates[1], lon: groomer.location.coordinates[0] },
+//     //     { lat: trainer.location.coordinates[1], lon: trainer.location.coordinates[0] },
 //     //     { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
 //     //   );
 
@@ -1746,35 +1746,35 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //     //   await orderDetail.save({ session });
 
 //     //   notificationPayload = {
-//     //     title: "Groomer has arrived",
+//     //     title: "trainer has arrived",
 //     //     body: "Your grooming service has started.",
 //     //   };
 //     // }
 // else if (status === "IN_PROGRESS") {
-//   if (!groomerLocation) {
-//     return res.status(400).json({ message: "Groomer location is required to start service." });
+//   if (!trainerLocation) {
+//     return res.status(400).json({ message: "trainer location is required to start service." });
 //   }
 
-//   // 📌 Update groomer live location in DB
+//   // 📌 Update trainer live location in DB
 //   await User.findByIdAndUpdate(
-//     groomerId,
-//     { location: { type: "Point", coordinates: groomerLocation } },
+//     trainerId,
+//     { location: { type: "Point", coordinates: trainerLocation } },
 //     { session }
 //   );
 
-//   // Re-fetch groomer location from DB
-//   const groomer = await User.findById(groomerId).session(session);
+//   // Re-fetch trainer location from DB
+//   const trainer = await User.findById(trainerId).session(session);
 //   const customerAddress = await Address.findById(orderDetail.defaultAddress).session(session);
 
-//   if (!groomer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
+//   if (!trainer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
 //     return res.status(400).json({ message: "Location data missing" });
 //   }
 
-//   console.log("📌 Groomer Location:", groomer.location.coordinates);
+//   console.log("📌 trainer Location:", trainer.location.coordinates);
 //   console.log("📌 Customer Location:", customerAddress.coordinates.coordinates);
 
 //   const distance = haversine(
-//     { lat: groomer.location.coordinates[1], lon: groomer.location.coordinates[0] },
+//     { lat: trainer.location.coordinates[1], lon: trainer.location.coordinates[0] },
 //     { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
 //   );
 
@@ -1790,7 +1790,7 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //   await orderDetail.save({ session });
 
 //   notificationPayload = {
-//     title: "Groomer has arrived",
+//     title: "trainer has arrived",
 //     body: "Your grooming service has started.",
 //   };
 // }
@@ -1801,15 +1801,15 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 //         return res.status(400).json({ message: "Booking must be in progress to mark it as completed." });
 //       }
 
-//       const groomer = await User.findById(groomerId).session(session); // 🔧 added .session(session)
+//       const trainer = await User.findById(trainerId).session(session); // 🔧 added .session(session)
 //       const customerAddress = await Address.findById(orderDetail.defaultAddress).session(session);
 
-//       if (!groomer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
+//       if (!trainer.location?.coordinates || !customerAddress.coordinates?.coordinates) {
 //         return res.status(400).json({ message: "Location data missing." });
 //       }
 
 //       const distance = haversine(
-//         { lat: groomer.location.coordinates[1], lon: groomer.location.coordinates[0] },
+//         { lat: trainer.location.coordinates[1], lon: trainer.location.coordinates[0] },
 //         { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
 //       );
 // // console.log("Distance-------------------->",distance);
@@ -1863,14 +1863,14 @@ const getOrderDetailsById = asyncHandler(async (req, res) => {
 const PROXIMITY_THRESHOLD = 50; // 50 meters
 const OTP_EXPIRY_MINUTES = 5; // OTP valid for 5 minutes
 
-const groomerCheckin = asyncHandler(async (req, res) => {
+const trainerCheckin = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const { orderDetailsId } = req.params;
-    const { status, groomerLocation } = req.body;
-    const groomerId = req.user._id;
+    const { status, trainerLocation } = req.body;
+    const trainerId = req.user._id;
 
     // 1. Validate status (strictly CHECKIN only)
     if (status !== "CHECKIN") {
@@ -1897,18 +1897,18 @@ const groomerCheckin = asyncHandler(async (req, res) => {
       });
     }
 
-    // 3. Validate groomer assignment
-    if (!orderDetail.groomer || orderDetail.groomer.toString() !== groomerId.toString()) {
+    // 3. Validate trainer assignment
+    if (!orderDetail.trainer || orderDetail.trainer.toString() !== trainerId.toString()) {
       return res.status(403).json({ message: "Unauthorized action for this booking" });
     }
 
     // 4. Validate location data
-    if (!groomerLocation) {
-      return res.status(400).json({ message: "Groomer location is required" });
+    if (!trainerLocation) {
+      return res.status(400).json({ message: "trainer location is required" });
     }
 
     // 5. Proximity check (using $geoNear + haversine fallback)
-    const groomerPoint = { type: "Point", coordinates: groomerLocation };
+    const trainerPoint = { type: "Point", coordinates: trainerLocation };
     const customerAddress = await Address.findById(orderDetail.defaultAddress).session(session);
 
     if (!customerAddress?.coordinates?.coordinates) {
@@ -1919,7 +1919,7 @@ const groomerCheckin = asyncHandler(async (req, res) => {
     const proximityCheck = await Address.aggregate([
       {
         $geoNear: {
-          near: groomerPoint,
+          near: trainerPoint,
           distanceField: "distance",
           maxDistance: PROXIMITY_THRESHOLD,
           query: { _id: customerAddress._id },
@@ -1932,7 +1932,7 @@ const groomerCheckin = asyncHandler(async (req, res) => {
     // Fallback to haversine if needed
     if (proximityCheck.length === 0) {
       const distance = haversine(
-        { lat: groomerLocation[1], lon: groomerLocation[0] },
+        { lat: trainerLocation[1], lon: trainerLocation[0] },
         { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
       );
       if (distance > PROXIMITY_THRESHOLD) {
@@ -1944,9 +1944,9 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 
     // 6. Update records
     await User.findByIdAndUpdate(
-      groomerId,
+      trainerId,
       { 
-        location: groomerPoint,
+        location: trainerPoint,
         userStatus: "BUSY" 
       },
       { session }
@@ -1960,15 +1960,15 @@ const groomerCheckin = asyncHandler(async (req, res) => {
     session.endSession();
 
     // await sendNotification(orderDetail.created_by, {
-    //   title: "Groomer Checked In",
-    //   body: "Your groomer has arrived."
+    //   title: "trainer Checked In",
+    //   body: "Your trainer has arrived."
     // });
     
         try {
       if (orderDetail.created_by) {
         await sendNotification(orderDetail.created_by.toString(), {
-          title: "Groomer Checked In",
-          body: "Your groomer has arrived.",
+          title: "trainer Checked In",
+          body: "Your trainer has arrived.",
           data: {
             orderDetailsId: orderDetail._id.toString(),
             status: "CHECKIN"
@@ -2002,30 +2002,30 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 //   try {
 //     const result = await session.withTransaction(async () => {
 //       const { orderDetailsId } = req.params;
-//       const { groomerLocation } = req.body;
-//       const groomerId = req.user._id;
+//       const { trainerLocation } = req.body;
+//       const trainerId = req.user._id;
 
 //       // Validate input
-//       if (!groomerLocation || !Array.isArray(groomerLocation)) {
-//         throw new ApiError(400, "Valid groomer location is required");
+//       if (!trainerLocation || !Array.isArray(trainerLocation)) {
+//         throw new ApiError(400, "Valid trainer location is required");
 //       }
 
 //       // Fetch data within transaction
-//       const [orderDetail, groomer] = await Promise.all([
+//       const [orderDetail, trainer] = await Promise.all([
 //         OrderDetails.findById(orderDetailsId)
 //           .populate({
 //             path: 'defaultAddress created_by',
 //             select: 'coordinates'
 //           })
 //           .session(session),
-//         User.findById(groomerId).session(session)
+//         User.findById(trainerId).session(session)
 //       ]);
 
-//       if (!orderDetail || !groomer) {
-//         throw new ApiError(404, "Order or groomer not found");
+//       if (!orderDetail || !trainer) {
+//         throw new ApiError(404, "Order or trainer not found");
 //       }
 
-//       if (orderDetail.groomer.toString() !== groomerId.toString()) {
+//       if (orderDetail.trainer.toString() !== trainerId.toString()) {
 //         throw new ApiError(403, "Unauthorized action");
 //       }
 
@@ -2034,7 +2034,7 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 //       }
 
 //       // Proximity check
-//       const groomerPoint = { type: "Point", coordinates: groomerLocation };
+//       const trainerPoint = { type: "Point", coordinates: trainerLocation };
 //       const customerAddress = orderDetail.defaultAddress;
       
 //       if (!customerAddress?.coordinates?.coordinates) {
@@ -2045,7 +2045,7 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 //       const proximityCheck = await Address.aggregate([
 //         {
 //           $geoNear: {
-//             near: groomerPoint,
+//             near: trainerPoint,
 //             distanceField: "distance",
 //             maxDistance: PROXIMITY_THRESHOLD,
 //             query: { _id: customerAddress._id },
@@ -2058,7 +2058,7 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 //       // Haversine fallback
 //       if (proximityCheck.length === 0) {
 //         const distance = haversine(
-//           { lat: groomerLocation[1], lon: groomerLocation[0] },
+//           { lat: trainerLocation[1], lon: trainerLocation[0] },
 //           { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
 //         );
 //         if (distance > PROXIMITY_THRESHOLD) {
@@ -2070,14 +2070,14 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 //       otp = Math.floor(100000 + Math.random() * 900000).toString(); // Now accessible outside
 //       const otpHash = await bcrypt.hash(otp, 10);
 
-//       // Update groomer
-//       groomer.otp = otpHash;
-//       groomer.otp_time = new Date();
-//       await groomer.save({ session });
+//       // Update trainer
+//       trainer.otp = otpHash;
+//       trainer.otp_time = new Date();
+//       await trainer.save({ session });
 
 //       return { 
 //         otpExpiry: OTP_EXPIRY_MINUTES,
-//         email: groomer.email
+//         email: trainer.email
 //       };
 //     });
 
@@ -2125,40 +2125,40 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 
 //   try {
 //     // Validate request body first (before starting transaction)
-//     const { groomerLocation } = req.body;
-//     if (!groomerLocation || !Array.isArray(groomerLocation) || groomerLocation.length !== 2) {
-//       throw new ApiError(400, "Valid groomer location is required as [longitude, latitude] array");
+//     const { trainerLocation } = req.body;
+//     if (!trainerLocation || !Array.isArray(trainerLocation) || trainerLocation.length !== 2) {
+//       throw new ApiError(400, "Valid trainer location is required as [longitude, latitude] array");
 //     }
 
 //     // Validate coordinates are numbers
-//     if (typeof groomerLocation[0] !== 'number' || typeof groomerLocation[1] !== 'number') {
+//     if (typeof trainerLocation[0] !== 'number' || typeof trainerLocation[1] !== 'number') {
 //       throw new ApiError(400, "Coordinates must be numbers");
 //     }
 
 //     // Validate coordinates are within valid ranges
-//     if (Math.abs(groomerLocation[0]) > 180 || Math.abs(groomerLocation[1]) > 90) {
+//     if (Math.abs(trainerLocation[0]) > 180 || Math.abs(trainerLocation[1]) > 90) {
 //       throw new ApiError(400, "Invalid coordinates: longitude must be [-180,180] and latitude [-90,90]");
 //     }
 
 //     const result = await session.withTransaction(async () => {
 //       const { orderDetailsId } = req.params;
-//       const groomerId = req.user._id;
+//       const trainerId = req.user._id;
 
 //       // Fetch data within transaction
-//       const [orderDetail, groomer] = await Promise.all([
+//       const [orderDetail, trainer] = await Promise.all([
 //         OrderDetails.findById(orderDetailsId)
 //           .populate({
 //             path: 'defaultAddress created_by',
 //             select: 'coordinates'
 //           })
 //           .session(session),
-//         User.findById(groomerId).session(session)
+//         User.findById(trainerId).session(session)
 //       ]);
 
 //       if (!orderDetail) throw new ApiError(404, "Order not found");
-//       if (!groomer) throw new ApiError(404, "Groomer not found");
+//       if (!trainer) throw new ApiError(404, "trainer not found");
 
-//       if (orderDetail.groomer.toString() !== groomerId.toString()) {
+//       if (orderDetail.trainer.toString() !== trainerId.toString()) {
 //         throw new ApiError(403, "Unauthorized action for this booking");
 //       }
 
@@ -2167,7 +2167,7 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 //       }
 
 //       // Proximity check
-//       const groomerPoint = { type: "Point", coordinates: groomerLocation };
+//       const trainerPoint = { type: "Point", coordinates: trainerLocation };
 //       const customerAddress = orderDetail.defaultAddress;
       
 //       if (!customerAddress?.coordinates?.coordinates) {
@@ -2178,7 +2178,7 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 //       const proximityCheck = await Address.aggregate([
 //         {
 //           $geoNear: {
-//             near: groomerPoint,
+//             near: trainerPoint,
 //             distanceField: "distance",
 //             maxDistance: PROXIMITY_THRESHOLD,
 //             query: { _id: customerAddress._id },
@@ -2191,7 +2191,7 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 //       // Haversine fallback
 //       if (proximityCheck.length === 0) {
 //         const distance = haversine(
-//           { lat: groomerLocation[1], lon: groomerLocation[0] },
+//           { lat: trainerLocation[1], lon: trainerLocation[0] },
 //           { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
 //         );
 //         if (distance > PROXIMITY_THRESHOLD) {
@@ -2203,14 +2203,14 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 //       otp = Math.floor(100000 + Math.random() * 900000).toString();
 //       const otpHash = await bcrypt.hash(otp, 10);
 
-//       // Update groomer
-//       groomer.otp = otpHash;
-//       groomer.otp_time = new Date();
-//       await groomer.save({ session });
+//       // Update trainer
+//       trainer.otp = otpHash;
+//       trainer.otp_time = new Date();
+//       await trainer.save({ session });
 
 //       return { 
 //         otpExpiry: OTP_EXPIRY_MINUTES,
-//         email: groomer.email
+//         email: trainer.email
 //       };
 //     });
 
@@ -2276,7 +2276,7 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 //     const result = await session.withTransaction(async () => {
 //       const { orderDetailsId } = req.params;
 //       const { otp } = req.body;
-//       const groomerId = req.user._id;
+//       const trainerId = req.user._id;
 
 //       // Validate OTP format
 //       if (!otp || !/^\d{6}$/.test(otp)) {
@@ -2284,28 +2284,28 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 //       }
 
 //       // Fetch records
-//       const [orderDetail, groomer] = await Promise.all([
+//       const [orderDetail, trainer] = await Promise.all([
 //         OrderDetails.findById(orderDetailsId).session(session),
-//         User.findById(groomerId).session(session)
+//         User.findById(trainerId).session(session)
 //       ]);
 
 //       // Validate records
-//       if (!orderDetail || !groomer) {
-//         throw new ApiError(404, "Order or groomer not found");
+//       if (!orderDetail || !trainer) {
+//         throw new ApiError(404, "Order or trainer not found");
 //       }
 
-//       if (!groomer.otp) {
-//         throw new ApiError(400, "No OTP generated for this groomer");
+//       if (!trainer.otp) {
+//         throw new ApiError(400, "No OTP generated for this trainer");
 //       }
 
 //       // Verify OTP
-//       const isMatch = await bcrypt.compare(otp, groomer.otp);
+//       const isMatch = await bcrypt.compare(otp, trainer.otp);
 //       if (!isMatch) {
 //         throw new ApiError(400, "Invalid OTP");
 //       }
 
 //       // Check expiry
-//       const expiryTime = new Date(groomer.otp_time.getTime() + (OTP_EXPIRY_MINUTES * 60000));
+//       const expiryTime = new Date(trainer.otp_time.getTime() + (OTP_EXPIRY_MINUTES * 60000));
 //       if (new Date() > expiryTime) {
 //         throw new ApiError(400, "OTP expired");
 //       }
@@ -2318,7 +2318,7 @@ const groomerCheckin = asyncHandler(async (req, res) => {
 //           { session }
 //         ),
 //         User.findByIdAndUpdate(
-//           groomerId,
+//           trainerId,
 //           { 
 //             userStatus: "AVAILABLE",
 //             otp: null,
@@ -2366,51 +2366,51 @@ const initiateCheckout = asyncHandler(async (req, res) => {
 
   try {
     // Validate request body (BEFORE starting transaction)
-    const { groomerLocation } = req.body;
+    const { trainerLocation } = req.body;
     
-    if (!groomerLocation) {
-      throw new ApiError(400, "Groomer location is required");
+    if (!trainerLocation) {
+      throw new ApiError(400, "trainer location is required");
     }
 
-    if (!Array.isArray(groomerLocation)) {
+    if (!Array.isArray(trainerLocation)) {
       throw new ApiError(400, "Location must be an array [longitude, latitude]");
     }
 
-    if (groomerLocation.length !== 2) {
+    if (trainerLocation.length !== 2) {
       throw new ApiError(400, "Exactly 2 coordinates required [longitude, latitude]");
     }
 
-    if (typeof groomerLocation[0] !== 'number' || typeof groomerLocation[1] !== 'number') {
+    if (typeof trainerLocation[0] !== 'number' || typeof trainerLocation[1] !== 'number') {
       throw new ApiError(400, "Coordinates must be numbers");
     }
 
     // Validate coordinate ranges
-    if (groomerLocation[0] < -180 || groomerLocation[0] > 180 || 
-        groomerLocation[1] < -90 || groomerLocation[1] > 90) {
+    if (trainerLocation[0] < -180 || trainerLocation[0] > 180 || 
+        trainerLocation[1] < -90 || trainerLocation[1] > 90) {
       throw new ApiError(400, "Invalid coordinates: longitude [-180,180], latitude [-90,90]");
     }
 
     const result = await session.withTransaction(async () => {
       const { orderDetailsId } = req.params;
-      const groomerId = req.user._id;
+      const trainerId = req.user._id;
 
       // Fetch all required data in parallel
-      const [orderDetail, groomer] = await Promise.all([
+      const [orderDetail, trainer] = await Promise.all([
         OrderDetails.findById(orderDetailsId)
           .populate({
             path: 'defaultAddress',
             select: 'coordinates'
           })
           .session(session),
-        User.findById(groomerId).session(session)
+        User.findById(trainerId).session(session)
       ]);
 
       // Validate records exist
       if (!orderDetail) throw new ApiError(404, "Order not found");
-      if (!groomer) throw new ApiError(404, "Groomer not found");
+      if (!trainer) throw new ApiError(404, "trainer not found");
 
-      // Validate groomer assignment
-      if (orderDetail.groomer.toString() !== groomerId.toString()) {
+      // Validate trainer assignment
+      if (orderDetail.trainer.toString() !== trainerId.toString()) {
         throw new ApiError(403, "Unauthorized action for this booking");
       }
 
@@ -2420,9 +2420,9 @@ const initiateCheckout = asyncHandler(async (req, res) => {
       }
 
       // Proximity check
-      const groomerPoint = { 
+      const trainerPoint = { 
         type: "Point", 
-        coordinates: groomerLocation 
+        coordinates: trainerLocation 
       };
       
       const customerAddress = orderDetail.defaultAddress;
@@ -2436,7 +2436,7 @@ const initiateCheckout = asyncHandler(async (req, res) => {
         const proximityCheck = await Address.aggregate([
           {
             $geoNear: {
-              near: groomerPoint,
+              near: trainerPoint,
               distanceField: "distance",
               maxDistance: PROXIMITY_THRESHOLD,
               query: { _id: customerAddress._id },
@@ -2451,7 +2451,7 @@ const initiateCheckout = asyncHandler(async (req, res) => {
         console.warn("Geospatial query failed, using fallback:", geoError);
         // Fallback to haversine calculation
         const distance = haversine(
-          { lat: groomerLocation[1], lon: groomerLocation[0] },
+          { lat: trainerLocation[1], lon: trainerLocation[0] },
           { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
         );
         isWithinProximity = distance <= PROXIMITY_THRESHOLD;
@@ -2460,7 +2460,7 @@ const initiateCheckout = asyncHandler(async (req, res) => {
       if (!isWithinProximity) {
         // Final precise distance calculation for error message
         const preciseDistance = haversine(
-          { lat: groomerLocation[1], lon: groomerLocation[0] },
+          { lat: trainerLocation[1], lon: trainerLocation[0] },
           { lat: customerAddress.coordinates.coordinates[1], lon: customerAddress.coordinates.coordinates[0] }
         );
         throw new ApiError(400, `You are ${preciseDistance.toFixed(2)} meters away. Must be within ${PROXIMITY_THRESHOLD}m`);
@@ -2470,14 +2470,14 @@ const initiateCheckout = asyncHandler(async (req, res) => {
       otp = Math.floor(100000 + Math.random() * 900000).toString();
       const otpHash = await bcrypt.hash(otp, 10);
 
-      // Update groomer record
-      groomer.otp = otpHash;
-      groomer.otp_time = new Date();
-      await groomer.save({ session });
+      // Update trainer record
+      trainer.otp = otpHash;
+      trainer.otp_time = new Date();
+      await trainer.save({ session });
 
       return { 
         otpExpiry: OTP_EXPIRY_MINUTES,
-        email: groomer.email
+        email: trainer.email
       };
     });
 
@@ -2558,31 +2558,31 @@ const completeCheckout = asyncHandler(async (req, res) => {
 
     const result = await session.withTransaction(async () => {
       // const { orderDetailsId } = req.params;
-      const groomerId = req.user._id;
+      const trainerId = req.user._id;
 
       // Fetch records in parallel
-      const [orderDetail, groomer] = await Promise.all([
+      const [orderDetail, trainer] = await Promise.all([
         OrderDetails.findById(orderDetailsId).session(session),
-        User.findById(groomerId).session(session)
+        User.findById(trainerId).session(session)
       ]);
 
       // Validate records exist
       if (!orderDetail) throw new ApiError(404, "Order not found");
-      if (!groomer) throw new ApiError(404, "Groomer not found");
+      if (!trainer) throw new ApiError(404, "trainer not found");
 
       // Validate OTP exists
-      if (!groomer.otp) {
-        throw new ApiError(400, "No OTP generated for this groomer");
+      if (!trainer.otp) {
+        throw new ApiError(400, "No OTP generated for this trainer");
       }
 
       // Verify OTP match
-      const isMatch = await bcrypt.compare(otp, groomer.otp);
+      const isMatch = await bcrypt.compare(otp, trainer.otp);
       if (!isMatch) {
         throw new ApiError(400, "Invalid OTP");
       }
 
       // Check OTP expiry
-      const expiryTime = new Date(groomer.otp_time.getTime() + (OTP_EXPIRY_MINUTES * 60000));
+      const expiryTime = new Date(trainer.otp_time.getTime() + (OTP_EXPIRY_MINUTES * 60000));
       if (new Date() > expiryTime) {
         throw new ApiError(400, "OTP expired");
       }
@@ -2598,7 +2598,7 @@ const completeCheckout = asyncHandler(async (req, res) => {
           { session }
         ),
         User.findByIdAndUpdate(
-          groomerId,
+          trainerId,
           { 
             userStatus: "AVAILABLE",
             otp: null,
@@ -2668,8 +2668,8 @@ export {
   getAllAssignedJobs,
   getOrderDetailsById,
   // updateBookingStatus,
-  updateGroomerProfileByTrainer,
-  groomerCheckin,
+  updateTrainerProfileByTrainer,
+  trainerCheckin,
   initiateCheckout,
   completeCheckout
 };

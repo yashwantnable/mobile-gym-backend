@@ -15,8 +15,8 @@ import {
   getAllAssignedJobs,
   getOrderDetailsById,
   // updateBookingStatus,
-  updateGroomerProfileByTrainer,
-  groomerCheckin,
+  updateTrainerProfileByTrainer,
+  trainerCheckin,
   initiateCheckout,
   completeCheckout
 } from "./trainer.controller.js";
@@ -38,9 +38,9 @@ router.route("/get-all-orders").get(verifyJWT, groomerOnly, getAllOrders);
 router.route("/get-all-assigned-jobs").post(verifyJWT, getAllAssignedJobs);
 router.route("/get-all-order-by-id/:id").get(verifyJWT, getOrderDetailsById);
 // router.route("/groomer-checkin-checkout/:orderDetailsId").post(verifyJWT, updateBookingStatus);
-router.route("/update-groomer-profile-by-groomer/:id").put(verifyJWT, multer.uploadSingle("profile_image"), updateGroomerProfileByTrainer);
+router.route("/update-groomer-profile-by-groomer/:id").put(verifyJWT, multer.uploadSingle("profile_image"), updateTrainerProfileByTrainer);
 
-router.route("/checkin/:orderDetailsId").post(verifyJWT, groomerCheckin);
+router.route("/checkin/:orderDetailsId").post(verifyJWT, trainerCheckin);
 router.route("/initiate-checkout/:orderDetailsId").post(verifyJWT, initiateCheckout);
 router.route("/complete-checkout/:orderDetailsId").post(verifyJWT, completeCheckout);
 

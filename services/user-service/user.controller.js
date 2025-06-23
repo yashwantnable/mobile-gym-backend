@@ -802,7 +802,7 @@ const getAllTrainerReviews = asyncHandler(async (req, res) => {
 
   const reviews = await TrainerRatingReview.find({})
     .populate("trainer", "first_name profile_image") 
-    .populate("subService", "name") 
+    .populate("session", "name") 
     .populate("created_by", "name") 
     .populate("updated_by", "name") 
     .sort({ createdAt: -1 }); 

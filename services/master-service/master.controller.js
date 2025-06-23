@@ -609,19 +609,13 @@ const deleteAllCities = asyncHandler(async (req, res) => {
 const createSession = asyncHandler(async (req, res) => {
   const { categoryId, sessionName } = req.body;
   const imageLocalPath = req.file?.path;
+console.log("req.body:",req.body);
 
-  const requiredFields = {
-    sessionName: (value) => value !== undefined && value !== null && value.trim() !== "",
-  };
-
-  const missingFields = Object.entries(requiredFields)
-    .filter(([field, checkFn]) => !checkFn(req.body[field]))
-    .map(([field]) => field);
-
-  if (missingFields.length > 0) {
+ 
+  if (!categoryId||!sessionName) {
     return res
       .status(400)
-      .json(new ApiError(400, `Missing or invalid fields: ${missingFields.join(", ")}`));
+      .json(new ApiError(400, `Missing or invalid fields: all fields are required`));
   }
 
   let image = null;
@@ -749,113 +743,7 @@ const deleteSession = asyncHandler(async (req, res) => {
 
 ////////////////////////////////////////////////////// BREED ////////////////////////////////////////////////////////
 //Create Breed
-const createBreed = asyncHandler(async (req, res) => {
-  console.log("req.body", req.body)
 
-  const { petTypeId, name } = req.body;
-  const created_by = req.user?._id || null;
-
-  if (!petTypeId || !name) {
-    throw new ApiError(400, "petTypeId and name are required");
-  }
-
-  const petType = await PetType.findById(petTypeId);
-  if (!petType) {
-    throw new ApiError(404, "Pet Type not found");
-  }
-
-  const breed = await Breed.create({
-    petTypeId,
-    name: name.toLowerCase(),
-    created_by,
-  });
-
-  res.status(201).json(new ApiResponse(201, breed, "Breed created successfully"));
-});
-
-
-//update Breed
-const updateBreed = asyncHandler(async (req, res) => {
-  console.log("req.params", req.params);
-  console.log("req.body", req.body);
-
-  try {
-    const { breedId } = req.params;
-    const { petTypeId, name } = req.body;
-    const updated_by = req.user?._id || null;
-
-    const breedExists = await Breed.findById(breedId);
-    if (!breedExists) {
-      throw new ApiError(404, "Breed not found");
-    }
-
-    if (petTypeId) {
-      const petTypeExists = await PetType.findById(petTypeId);
-      if (!petTypeExists) {
-        throw new ApiError(404, "Pet Type not found");
-      }
-    }
-
-    const updateData = { updated_by };
-    if (petTypeId) updateData.petTypeId = petTypeId;
-    if (name) updateData.name = name.toLowerCase();
-
-    const updatedBreed = await Breed.findByIdAndUpdate(breedId, updateData, { new: true });
-
-    res.status(200).json(new ApiResponse(200, updatedBreed, "Breed updated successfully"));
-  } catch (error) {
-    console.error("Error updating breed:", error);
-    return res.status(500).json(new ApiError(500, error.message || "Internal Server Error")); 
-  }
-});
-
-
-//find Breed
-const getBreedById = asyncHandler(async (req, res) => {
-  console.log("req.params", req.params)
-  console.log("req.body", req.body)
-
-  const { id } = req.params;
-
-  const breed = await Breed.findById(id).populate("petTypeId", "name");
-  if (!breed) {
-    throw new ApiError(404, "Breed not found");
-  }
-
-  res.status(200).json(new ApiResponse(200, breed));
-})
-
-
-//find All Breed
-const getAllBreed = asyncHandler(async (req, res) => {
-  console.log("req.body", req.body);
-
-  let { filter = {}, sortOrder = -1 } = req.body;
-
-  if (filter?.petTypeId) {
-    filter.petTypeId = new mongoose.Types.ObjectId(filter.petTypeId);
-  }
-
-  const breeds = await Breed.find(filter)
-    .sort({ createdAt: sortOrder })
-    .populate("petTypeId", "name"); 
-
-  res.status(200).json(new ApiResponse(200, breeds));
-});
-
-
-//delete breed
-const deleteBreed = asyncHandler(async (req, res) => {
- 
-  const { id } = req.params;
-
-  const breed = await Breed.findByIdAndDelete(id);
-  if (!breed) {
-    throw new ApiError(404, "Breed not found");
-  }
-
-  res.status(200).json(new ApiResponse(200, null, "Breed deleted successfully"));
-})
 
 
 
@@ -1071,142 +959,6 @@ const deleteTaxMaster = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Tax Master deleted successfully"));
 });
 
-// const createExtraCharge = asyncHandler(async (req, res) => {
-//   console.log("req.body", req.body);
-
-//   const { extraprice } = req.body;
-//   const created_by = req.user?._id || null;
-
-//   if (extraprice === undefined || extraprice === null) {
-//     throw new ApiError(400, "Extraprice is required");
-//   }
-
-//   const existingCharge = await ExtraCharge.findOne();
-//   if (existingCharge) {
-//     throw new ApiError(400, "An extra charge already exists. You can update or delete it.");
-//   }
-
-//   const extraCharge = await ExtraCharge.create({
-//     extraprice,
-//     created_by,
-//   });
-
-//   res
-//     .status(201)
-//     .json(new ApiResponse(201, extraCharge, "Extra charge created successfully"));
-// });
-
-// // Update ExtraCharge
-// const updateExtraCharge = asyncHandler(async (req, res) => {
-//   console.log("req.params", req.params);
-//   console.log("req.body", req.body);
-
-//   const { id } = req.params;
-//   const { extraprice } = req.body;
-//   const updated_by = req.user?._id || null;
-
-//   const extraCharge = await ExtraCharge.findById(id);
-//   if (!extraCharge) {
-//     throw new ApiError(404, "Extra charge not found");
-//   }
-
-//   const updateData = { updated_by };
-//   if (extraprice !== undefined) updateData.extraprice = extraprice;
-
-//   const updatedExtraCharge = await ExtraCharge.findByIdAndUpdate(id, updateData, {
-//     new: true,
-//   });
-
-//   res
-//     .status(200)
-//     .json(new ApiResponse(200, updatedExtraCharge, "Extra charge updated successfully"));
-// });
-
-// Get ExtraCharge by ID
-
-/**-*** */
-// const createExtraCharge = asyncHandler(async (req, res) => {
-//   const { extraprice, is_default = false } = req.body;
-//   const created_by = req.user?._id || null;
-
-//   if (extraprice === undefined || extraprice === null) {
-//     throw new ApiError(400, "Extraprice is required");
-//   }
-
-//   const extraCharge = await ExtraCharge.create({
-//     extraprice,
-//     is_default,
-//     created_by,
-//   });
-
-//   res
-//     .status(201)
-//     .json(new ApiResponse(201, extraCharge, "Extra charge created successfully"));
-// });
-
-// // Update ExtraCharge
-// const updateExtraCharge = asyncHandler(async (req, res) => {
-//   const { id } = req.params;
-//   const { extraprice, is_default } = req.body;
-//   const updated_by = req.user?._id || null;
-
-//   const extraCharge = await ExtraCharge.findById(id);
-//   if (!extraCharge) {
-//     throw new ApiError(404, "Extra charge not found");
-//   }
-
-//   const updateData = { updated_by };
-//   if (extraprice !== undefined) updateData.extraprice = extraprice;
-//   if (is_default !== undefined) updateData.is_default = is_default;
-
-//   const updatedExtraCharge = await ExtraCharge.findByIdAndUpdate(id, updateData, {
-//     new: true,
-//   });
-
-//   res
-//     .status(200)
-//     .json(new ApiResponse(200, updatedExtraCharge, "Extra charge updated successfully"));
-// });
-
-// const getExtraChargeById = asyncHandler(async (req, res) => {
-//   const { id } = req.params;
-
-//   const extraCharge = await ExtraCharge.findById(id)
-//     .populate("created_by", "name")
-//     .populate("updated_by", "name");
-
-//   if (!extraCharge) {
-//     throw new ApiError(404, "Extra charge not found");
-//   }
-
-//   res.status(200).json(new ApiResponse(200, extraCharge));
-// });
-
-// // Get All ExtraCharges
-// const getAllExtraCharges = asyncHandler(async (req, res) => {
-//   console.log("req.body", req.body);
-
-//   let { filter = {}, sortOrder = -1 } = req.body;
-
-//   const extraCharges = await ExtraCharge.find(filter)
-//     // .sort({ createdAt: sortOrder })
-//     // .populate("created_by", "name")
-//     // .populate("updated_by", "name");
-
-//   res.status(200).json(new ApiResponse(200, extraCharges));
-// });
-
-// // Delete ExtraCharge
-// const deleteExtraCharge = asyncHandler(async (req, res) => {
-//   const { id } = req.params;
-
-//   const extraCharge = await ExtraCharge.findByIdAndDelete(id);
-//   if (!extraCharge) {
-//     throw new ApiError(404, "Extra charge not found");
-//   }
-
-//   res.status(200).json(new ApiResponse(200, null, "Extra charge deleted successfully"));
-// });
 
 
 
@@ -1239,17 +991,17 @@ deleteSession,
   getTaxMasterById,
   deleteTaxMaster,
 
-  // createCountry,
-  // updateCountry,
-  // getAllCountry,
-  // getCountryById,
-  // deleteAllCountry,
+  createCountry,
+  updateCountry,
+  getAllCountry,
+  getCountryById,
+  deleteAllCountry,
 
-  // createCity,
-  // updateCity,
-  // getAllCity,
-  // getCityById,
-  // deleteAllCities,
+  createCity,
+  updateCity,
+  getAllCity,
+  getCityById,
+  deleteAllCities,
 
   // createServiceType,
   // getAllServiceTypes,

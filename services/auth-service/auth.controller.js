@@ -12,6 +12,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
 import sendSMS from "../../utils/sms.js";
+import { CollectionGroup } from "firebase-admin/firestore";
 
 
 //generate access and refreshtoken
@@ -155,6 +156,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
 // loginUser
 const loginUser = asyncHandler(async (req, res) => {
+
   try {
    
     const { emailOrPhone, password, provider } = req.body;
