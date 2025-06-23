@@ -14,7 +14,9 @@ import cartRouter from "../services/cart-service/cart.router.js";
 import currencyRouter from "../services/currency-service/currency.router.js";
 import orderRouter from "../services/order-service/order.router.js"
 import paymentRouter from "../services/payment-service/payment.router.js"
-import bookingrouter from "../services/booking-service/booking.router.js";
+import bookingrouter from "../services/booking-service/booking.router.js"
+import subscriptionRouter from "../services/subscription-service/subcriptionService.router.js"
+
 
 
 const router = Router();
@@ -35,5 +37,6 @@ router.use("/currency", currencyRouter)
 router.use("/order", orderRouter)
 router.use("/payment", paymentRouter)
 router.use("/booking", bookingrouter)
+router.use("/subscription", subscriptionRouter)
 
 export default router;
