@@ -18,20 +18,20 @@ import{
     getAllAddress,
     getAddressById,
     deleteAddress,
-    createSubServiceRatingReview,
-    updateSubServiceRatingReview,
-    getAllSubServiceRatingReviews,
-    getSubServiceRatingReviewByUser,
+    createSubscriptionRatingReview,
+    updateSubscriptionRatingReview,
     createTrainerRatingReview,
     updateTrainerRatingReview,
     getAllTrainerReviews,
     getTrainerRatingReviewByUser,
     calculateCartTotal,
-    getAllSubServicesRatingReviews,
     getAdminDetails,
     getAllNotification,
     updateNotification,
     updateAllNotification,
+    getAllSubscriptionRatingReviews,
+    getSubscriptionRatingReviewByUser,
+    getAllSubscriptionsRatingReviews,
 } from "./user.controller.js"
 
 import {getAllArticals, getArticalById} from "../../services/admin-service/admin.controller.js"
@@ -56,13 +56,12 @@ router.route("/get-address-by-id/:id").get(verifyJWT, customerOnly, getAddressBy
 router.route("/get-all-address").get(verifyJWT, customerOnly, getAllAddress);
 router.route("/delete-address/:id").delete(verifyJWT, customerOnly, deleteAddress);
 
-router.route("/create-subservice-rating-review").post(verifyJWT,customerOnly,createSubServiceRatingReview);
-router.route("/update-subservice-review/:subServiceId").put(verifyJWT,customerOnly, updateSubServiceRatingReview);
+router.route("/create-subscription-rating-review").post(verifyJWT,customerOnly,createSubscriptionRatingReview);
+router.route("/update-subscription-review/:subsciptionId").put(verifyJWT,customerOnly, updateSubscriptionRatingReview);
 // router.route("/delete-trainer-review-images/:id").patch(verifyJWT, customerOnly, updateTrainerRatingReview);
-router.route("/get-rating-review/:subServiceId").get(verifyJWT,customerOnly,getSubServiceRatingReviewByUser);
-router.route("/get-all-subservice-rating-review/:subServiceId").get(verifyJWT,customerOnly,getAllSubServiceRatingReviews);
-router.route("/get-all-subservice-rating-review").get(verifyJWT,customerOnly,getAllSubServicesRatingReviews);
-
+router.route("/get-rating-review/:subsciptionId").get(verifyJWT,customerOnly,getSubscriptionRatingReviewByUser);
+router.route("/get-all-subscription-rating-review/:subsciptionId").get(verifyJWT,customerOnly,getAllSubscriptionRatingReviews);
+router.route("/get-all-subscription-rating-review").get(verifyJWT,customerOnly,getAllSubscriptionsRatingReviews);
 
 router.route("/create-trainer-rating-review").post(verifyJWT,customerOnly,createTrainerRatingReview);
 router.route("/update-trainer-review/:trainerId").put(verifyJWT,customerOnly, updateTrainerRatingReview);

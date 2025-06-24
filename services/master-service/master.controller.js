@@ -6,7 +6,7 @@ import {
   uploadOnCloudinary,
   deleteFromCloudinary,
 } from "../../utils/cloudinary.js";
-import { City, Country, TaxMaster, TenureModel } from "../../models/master.model.js"
+import { City, Country, LocationMaster, TaxMaster, TenureModel } from "../../models/master.model.js"
 import cities from "../../utils/seeds/cities.js";
 import countries from "../../utils/seeds/countries.js"
 import pagination from "../../utils/pagination.js"
@@ -742,7 +742,203 @@ const deleteSession = asyncHandler(async (req, res) => {
 
 
 ////////////////////////////////////////////////////// BREED ////////////////////////////////////////////////////////
-//Create Breed
+// CREATE Location Master
+const createLocationMaster = asyncHandler(async (req, res) => {
+  // console.log("location res:",req.body)
+  const { streetName, country,pin,city,pinAddress, is_active } = req.body;
+
+  if (!streetName) {
+    return res.status(400).json(new ApiError(400, "Missing required field: streetName"));
+  }
+
+  const createdLocation = await LocationMaster.create({
+    streetName,
+    country,
+    city,
+    pin,
+    pinAddress,
+    is_active,
+    created_by: req.user?._id,
+  });
+
+  return res.status(201).json(
+    new ApiResponse(201, createdLocation, "Location Master created successfully")
+  );
+});
+
+// UPDATE Location Master
+const updateLocationMaster = asyncHandler(async (req, res) => {
+  if (!req.params.id || req.params.id === "undefined") {
+    return res.status(400).json(new ApiError(400, "id not provided"));
+  }
+
+  if (Object.keys(req.body).length === 0) {
+    return res.status(400).json(new ApiError(400, "No data provided to update"));
+  }
+
+  const { streetName, country,city,pin,pinAddress, is_active } = req.body;
+
+  const updatedLocation = await LocationMaster.findByIdAndUpdate(
+    req.params.id,
+    {
+      streetName,
+      country,
+      pinAddress,
+      pin,
+      city,
+      is_active,
+      updated_by: req.user?._id,
+    },
+    { new: true }
+  );
+
+  if (!updatedLocation) {
+    return res.status(404).json(new ApiError(404, "Location Master not found"));
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, updatedLocation, "Location Master updated successfully")
+  );
+});
+
+const getLocationsByCountryAndCity = asyncHandler(async (req, res) => {
+  const { country, city } = req.query;
+
+  if (!country) {
+    return res
+      .status(400)
+      .json(new ApiError(400, "Country is required"));
+  }
+
+  const filter = {
+    country: country,
+  };
+
+  if (city) {
+    // Check if city is a valid ObjectId
+    if (mongoose.Types.ObjectId.isValid(city)) {
+      filter.city = city;
+    } else {
+      // Match city name case-insensitively
+      filter.city = { $regex: new RegExp(`^${city}$`, 'i') };
+    }
+  }
+
+  const locations = await LocationMaster.find(filter)
+    .populate("country")
+    .exec();
+
+  if (!locations.length) {
+    return res
+      .status(404)
+      .json(new ApiError(404, "No locations found for the given criteria"));
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, locations, "Locations fetched successfully"));
+});
+
+
+// GET ALL Location Masters (with pagination)
+const getAllLocationMasters = asyncHandler(async (req, res) => {
+  const { search = '' } = req.query;
+  const { filter, page, limit, sortOrder } = req.body;
+
+  if (filter?.country) {
+    filter.country = new mongoose.Types.ObjectId(filter.country);
+  }
+
+  let searchCondition = {};
+  if (search && search !== 'undefined') {
+    const regex = new RegExp(search, 'i');
+    searchCondition = {
+      $or: [
+        { name: { $regex: regex } },
+        { 'Country.name': { $regex: regex } },
+      ],
+    };
+  }
+
+  const combinedFilter = {
+    ...filter,
+    ...searchCondition,
+  };
+
+  const aggregations = [
+    {
+      $lookup: {
+        from: 'countries',
+        localField: 'country',
+        foreignField: '_id',
+        as: 'Country',
+      },
+    },
+    {
+      $unwind: {
+        path: '$Country',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    { $match: combinedFilter },
+  ];
+
+  const { newOffset, newLimit, totalPages, totalCount, newSortOrder } =
+    await pagination(LocationMaster, page, limit, sortOrder, aggregations);
+
+  let allLocationMasters = [];
+
+  if (totalCount > 0) {
+    allLocationMasters = await LocationMaster.aggregate([
+      ...aggregations,
+      { $project: { country: 0 } },
+      { $sort: { _id: newSortOrder } },
+      { $skip: newOffset },
+      { $limit: newLimit },
+    ]).exec();
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, { allLocationMasters, page, limit, totalPages, totalCount }, totalCount ? "Location Master fetched successfully" : "No Location Master found")
+  );
+});
+
+// GET All Location Masters (no pagination)
+const getAllLocations = asyncHandler(async (req, res) => {
+  const allLocations = await LocationMaster.find().populate('country');
+  return res.status(200).json(new ApiResponse(200, allLocations, "Locations fetched successfully"));
+});
+
+// GET Location Master by ID
+const getLocationMasterById = asyncHandler(async (req, res) => {
+  if (!req.params.id || req.params.id === "undefined") {
+    return res.status(400).json(new ApiError(400, "id not provided"));
+  }
+
+  const location = await LocationMaster.findById(req.params.id).populate('country');
+
+  if (!location) {
+    return res.status(404).json(new ApiError(404, "Location Master not found"));
+  }
+
+  return res.status(200).json(new ApiResponse(200, location, "Location Master fetched successfully"));
+});
+
+// DELETE Location Master
+const deleteLocationMaster = asyncHandler(async (req, res) => {
+  if (!req.params.id || req.params.id === "undefined") {
+    return res.status(400).json(new ApiError(400, "id not provided"));
+  }
+
+  const location = await LocationMaster.findByIdAndDelete(req.params.id);
+
+  if (!location) {
+    return res.status(404).json(new ApiError(404, "Location Master not found"));
+  }
+
+  return res.status(200).json(new ApiResponse(200, "Location Master deleted successfully"));
+});
+
 
 
 
@@ -963,6 +1159,14 @@ const deleteTaxMaster = asyncHandler(async (req, res) => {
 
 
 export {
+  createLocationMaster,
+updateLocationMaster,
+getAllLocationMasters,
+getAllLocations,
+getLocationsByCountryAndCity,
+getLocationMasterById,
+deleteLocationMaster,
+
    createTenure,
   getAllTenure,
   getSingleTenure,

@@ -23,6 +23,10 @@ const subscriptionSchema = new Schema(
       ref: "TenureModel",
       required: true,
     },
+    location: {
+      type: String,
+      required: true,
+    },
     price: {
       type: Number,
       required: true,

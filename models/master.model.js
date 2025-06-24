@@ -300,8 +300,53 @@ const categorySchema = new Schema(
   { timestamps: true, versionKey: false }
 );
 
+
+const locationSchema = new Schema(
+  {
+    country: {
+      type: Schema.Types.ObjectId,
+      ref: "Country",
+      required: true,
+    },
+    city: {
+      type: Schema.Types.ObjectId,
+      ref: "Country",
+      required: true,
+    },
+    pin: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    streetName: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+    },
+    pinAddress: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    created_by: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updated_by: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+  },
+  { timestamps: true, versionKey: false }
+);
+
+
 export const Category = mongoose.model("Category", categorySchema);
 export const TenureModel = mongoose.model("TenureModel", tenureSchema);
+export const LocationMaster = mongoose.model("LocationMaster", locationSchema);
 
 export const Currency = mongoose.model("Currency", currencySchema);
 export const Country = mongoose.model("Country", countrySchema);

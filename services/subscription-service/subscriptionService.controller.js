@@ -6,7 +6,7 @@ import { Subscription } from "../../models/subscription.model.js";
 
 // Create Subscription
 const createServiceType = asyncHandler(async (req, res) => {
-  const { name, categoryId, sessionType, duration, price, subscriptionLink, description, isActive } = req.body;
+  const { name, categoryId, sessionType, duration, price, subscriptionLink, description,location, isActive } = req.body;
 
   if (!name || !categoryId || !sessionType || !duration || !price) {
     return res.status(400).json(new ApiError(400, "Missing required fields"));
@@ -15,6 +15,8 @@ const createServiceType = asyncHandler(async (req, res) => {
   let mediaUrl = null;
   if (req.file || (req.files && req.files.media && req.files.media[0])) {
     const mediaPath = req.file ? req.file.path : req.files.media[0].path;
+   console.log("media path",mediaPath)
+     console.log(" req.file", req.file)
     const uploadedMedia = await uploadOnCloudinary(mediaPath);
     if (!uploadedMedia?.url) {
       return res.status(400).json(new ApiError(400, "Error uploading media"));
@@ -32,6 +34,7 @@ const createServiceType = asyncHandler(async (req, res) => {
     sessionType,
     duration,
     price,
+    location,
     subscriptionLink,
     media: mediaUrl,
     description,
@@ -61,7 +64,7 @@ const getServiceTypeById = asyncHandler(async (req, res) => {
 // Update Subscription
 const updateServiceType = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, categoryId, sessionType, duration, price, subscriptionLink, description, isActive } = req.body;
+  const { name, categoryId, sessionType, duration, price, subscriptionLink, description,location, isActive } = req.body;
 
   const service = await Subscription.findById(id);
   if (!service) {
@@ -95,6 +98,7 @@ const updateServiceType = asyncHandler(async (req, res) => {
       price,
       subscriptionLink,
       media: mediaUrl,
+      location,
       description,
       isActive,
       updated_by: req.user?._id,

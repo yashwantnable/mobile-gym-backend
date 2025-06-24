@@ -12,7 +12,7 @@ import {
 // import {ServiceType} from "../../models/service.model.js"
 import {SubServiceType} from "../../models/subService.model.js"
 // import {Address} from "../../models/user.model.js"
-import {SubServiceRatingReview} from "../../models/ratingReview.model.js"
+import {SubscriptionRatingReview} from "../../models/ratingReview.model.js"
 import { TrainerRatingReview } from "../../models/trainerRatingReview.model.js"
 import {TaxMaster, ExtraCharge} from "../../models/master.model.js"
 import {Cart} from "../../models/cart.model.js"
@@ -536,33 +536,72 @@ const deleteAddress = asyncHandler(async (req, res) => {
 
 
 // Create SubService Rating and Review
-const createSubServiceRatingReview = asyncHandler(async (req, res) => {
-  const { subService, rating, review, sessionId, trainer } = req.body;
+// const createSubscriptionRatingReview = asyncHandler(async (req, res) => {
+//   const { rating, review, sessionId, subscriptionId,trainer } = req.body;
 
-  if (!subService || !rating) {
-    return res.status(400).json(new ApiError(400, "SubService ID and rating are required"));
+//   if (!subscriptionId || !rating) {
+//     return res.status(400).json(new ApiError(400, "subscription Id and rating are required"));
+//   }
+
+//   // Check for existing review by user for this subscription
+//   const existingReview = await SubscriptionRatingReview.findOne({
+//   subscriptionId,
+//   sessionId,
+//   created_by: req.user._id,
+// });
+
+
+//   if (existingReview) {
+//     return res.status(400).json(new ApiError(400, "You have already reviewed this subscription"));
+//   }
+
+//   const reviewData = {
+//     subscriptionId,
+//     rating,
+//     review: review || "",
+//     sessionId: sessionId || null,
+//     trainer: trainer || null,
+//     created_by: req.user._id,
+//   };
+
+//   const createdReview = await SubscriptionRatingReview.create(reviewData);
+
+//   return res
+//     .status(201)
+//     .json(new ApiResponse(201, createdReview, "Sub-service review added successfully"));
+// });
+const createSubscriptionRatingReview = asyncHandler(async (req, res) => {
+  const { rating, review, sessionId, subscriptionId, trainer } = req.body;
+
+  if (!subscriptionId || !rating) {
+    return res.status(400).json(new ApiError(400, "subscription Id and rating are required"));
   }
 
-  // Check for existing review by user for this sub-service
-  const existingReview = await SubServiceRatingReview.findOne({
-    subService,
-    created_by: req.user._id,
+  const userId = req.user?._id;
+
+  // ✅ Correctly convert to ObjectId
+  const subId = new mongoose.Types.ObjectId(subscriptionId);
+  const creatorId = new mongoose.Types.ObjectId(userId);
+
+  const existingReview = await SubscriptionRatingReview.findOne({
+    subscriptionId: subId,
+    created_by: creatorId,
   });
 
   if (existingReview) {
-    return res.status(400).json(new ApiError(400, "You have already reviewed this sub-service"));
+    return res.status(400).json(new ApiError(400, "You have already reviewed this subscription"));
   }
 
   const reviewData = {
-    subService,
+    subscriptionId: subId,
     rating,
     review: review || "",
-    sessionId: sessionId || null,
-    trainer: trainer || null,
-    created_by: req.user._id,
+    sessionId: sessionId ? new mongoose.Types.ObjectId(sessionId) : null,
+    trainer: trainer ? new mongoose.Types.ObjectId(trainer) : null,
+    created_by: creatorId,
   };
 
-  const createdReview = await SubServiceRatingReview.create(reviewData);
+  const createdReview = await SubscriptionRatingReview.create(reviewData);
 
   return res
     .status(201)
@@ -570,9 +609,10 @@ const createSubServiceRatingReview = asyncHandler(async (req, res) => {
 });
 
 
+
 // Update SubService Rating and Review
-const updateSubServiceRatingReview = asyncHandler(async (req, res) => {
-  const { subServiceId } = req.params;
+const updateSubscriptionRatingReview = asyncHandler(async (req, res) => {
+  const { subscriptionId } = req.params;
   const { review, rating } = req.body;
 
     if (!review && (rating === undefined || rating === null)) {
@@ -588,8 +628,8 @@ const updateSubServiceRatingReview = asyncHandler(async (req, res) => {
       .json(new ApiError(400, "Rating must be between 1 and 5"));
   }
 
-  const existingReview = await SubServiceRatingReview.findOne({
-    subService: subServiceId,
+  const existingReview = await SubscriptionRatingReview.findOne({
+    subscriptionId: subscriptionId,
     created_by: req.user._id,
   });
 
@@ -608,14 +648,14 @@ const updateSubServiceRatingReview = asyncHandler(async (req, res) => {
   );
 });
 
-// const getAllSubServiceRatingReviews = asyncHandler(async (req, res) => {
+// const getAllSubscriptionRatingReviews = asyncHandler(async (req, res) => {
 //   const { subServiceId } = req.params;
 
 //   if (!subServiceId) {
 //     return res.status(400).json(new ApiError(400, "SubService ID is required"));
 //   }
 
-//   const reviews = await SubServiceRatingReview.find({ subService: subServiceId })
+//   const reviews = await SubscriptionRatingReview.find({ subService: subServiceId })
 //     .populate("created_by", "first_name email")
 //     .exec();
 
@@ -644,14 +684,14 @@ const updateSubServiceRatingReview = asyncHandler(async (req, res) => {
 /**----------- */
 
 // Get all SubService Rating and Reviews
-const getAllSubServiceRatingReviews = asyncHandler(async (req, res) => {
-  const { subServiceId } = req.params;
+const getAllSubscriptionRatingReviews = asyncHandler(async (req, res) => {
+  const { subscriptionId } = req.params;
 
-  if (!subServiceId) {
-    return res.status(400).json(new ApiError(400, "SubService ID is required"));
+  if (!subscriptionId) {
+    return res.status(400).json(new ApiError(400, "Subscription ID is required"));
   }
 
-  const reviews = await SubServiceRatingReview.find({ subService: subServiceId })
+  const reviews = await SubscriptionRatingReview.find({ subscriptionId: subscriptionId })
     .populate("created_by", "first_name email")
     .populate("trainer", "first_name email")
     .exec();
@@ -675,9 +715,9 @@ const getAllSubServiceRatingReviews = asyncHandler(async (req, res) => {
     new ApiResponse(200, { reviews, averageRating, totalReviews }, "Reviews fetched successfully")
   );
 });
-const getAllSubServicesRatingReviews = asyncHandler(async (req, res) => {
+const getAllSubscriptionsRatingReviews = asyncHandler(async (req, res) => {
  
-  const reviews = await SubServiceRatingReview.find()
+  const reviews = await SubscriptionRatingReview.find()
     .populate("created_by", "first_name email")
     .populate("trainer", "first_name email")
     .exec();
@@ -704,18 +744,18 @@ const getAllSubServicesRatingReviews = asyncHandler(async (req, res) => {
 
 
 // Get SubService Rating and Review by User
-const getSubServiceRatingReviewByUser = asyncHandler(async (req, res) => {
-  const { subServiceId } = req.params;
+const getSubscriptionRatingReviewByUser = asyncHandler(async (req, res) => {
+  const { subscriptionId } = req.params;
 
-  if (!subServiceId) {
-    return res.status(400).json(new ApiError(400, "SubService ID is required"));
+  if (!subscriptionId) {
+    return res.status(400).json(new ApiError(400, "subscription ID is required"));
   }
 
-  const review = await SubServiceRatingReview.findOne({
-    subService: subServiceId,
+  const review = await SubscriptionRatingReview.findOne({
+    subscription: subscriptionId,
     created_by: req.user._id,
   })
-  .populate("subService", "name image")
+  .populate("subscription", "name image")
   .exec();
 
   if (!review) {
@@ -744,7 +784,7 @@ const createTrainerRatingReview = asyncHandler(async (req, res) => {
 // console.log("existingReview----------------------->",existingReview);
 
   if (existingReview) {
-    return res.status(400).json(new ApiError(400, "You have already reviewed this trainer for this order"));
+    return res.status(400).json(new ApiError(400, "You have already reviewed this trainer for this Subscription"));
   }
 
   const reviewData = {
@@ -1250,16 +1290,16 @@ export {
   getAllAddress,
   getAddressById,
   deleteAddress,
-  createSubServiceRatingReview,
-  updateSubServiceRatingReview,
-  getAllSubServiceRatingReviews,
-  getSubServiceRatingReviewByUser,
+  createSubscriptionRatingReview,
+  updateSubscriptionRatingReview,
+  getAllSubscriptionRatingReviews,
+  getSubscriptionRatingReviewByUser,
   createTrainerRatingReview,
   updateTrainerRatingReview,
   getAllTrainerReviews,
   getTrainerRatingReviewByUser,
   calculateCartTotal,
-  getAllSubServicesRatingReviews,
+  getAllSubscriptionsRatingReviews,
   getAdminDetails,
   getAllNotification,
   updateNotification,

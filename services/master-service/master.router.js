@@ -9,8 +9,7 @@ import {
   // getRoleById,
   getAllRole,
   getAllActiveRole,
-
-   createTenure,
+  createTenure,
   getAllTenure,
   getSingleTenure,
   updateTenure,
@@ -22,6 +21,15 @@ import {
   getAllTax,
   getTaxMasterById,
   deleteTaxMaster,
+
+  createLocationMaster,
+updateLocationMaster,
+getAllLocationMasters,
+getAllLocations,
+getLocationsByCountryAndCity,
+getLocationMasterById,
+deleteLocationMaster,
+
   createCountry,
   updateCountry,
   getAllCountry,
@@ -32,32 +40,7 @@ import {
   getAllCity,
   getCityById,
   deleteAllCities,
-  // createServiceType,
-  // getAllServiceTypes,
-  // getServiceTypeById,
-  // updateServiceType,
-  // deleteServiceType,
-  // createBreed,
-  // updateBreed,
-  // getBreedById,
-  // getAllBreed,
-  // deleteBreed,
-  // createPetType,
-  // updatePetType,
-  // getPetType,
-  // getAllPetTypes,
-  // deletePetType,
-  
-  // createExtraCharge,
-  // updateExtraCharge,
-  // getExtraChargeById,
-  // getAllExtraCharges,
-  // deleteExtraCharge,
-  // createVaccine,
-  // getAllVaccines,
-  // getVaccineById,
-  // updateVaccine,
-  // deleteVaccine,
+
   createSession,
   getAllSessions,
   getSessionById,
@@ -67,7 +50,7 @@ import {
   createCategory,
   deleteCategory,
   updateCategory,
-  getSingleCategory
+  getSingleCategory,
 } from "./master.controller.js";
 
 const router = Router();
@@ -80,24 +63,42 @@ router.route("/update-tenure/:id").put(verifyJWT, adminOnly, updateTenure);
 router.route("/delete-tenure/:id").delete(verifyJWT, adminOnly, deleteTenure);
 
 // // routes for Tax Master
-router.route("/create-tax-master").post(verifyJWT, adminOnly, createTaxMaster)
-router.route("/update-tax-master/:id").put(verifyJWT, adminOnly, updateTaxMaster)
-router.route("/get-tax-master/:id").get(verifyJWT, adminOnly, getTaxMasterById)
-router.route("/get-all-tax-master").post(verifyJWT, getAllTaxMaster)
-router.route("/get-all-tax").get(verifyJWT, getAllTax)
-router.route("/delete-tax-master-by-id/:id").delete(verifyJWT, adminOnly, deleteTaxMaster)
+router.route("/create-tax-master").post(verifyJWT, adminOnly, createTaxMaster);
+router
+  .route("/update-tax-master/:id")
+  .put(verifyJWT, adminOnly, updateTaxMaster);
+router.route("/get-tax-master/:id").get(verifyJWT, adminOnly, getTaxMasterById);
+router.route("/get-all-tax-master").post(verifyJWT, getAllTaxMaster);
+router.route("/get-all-tax").get(verifyJWT, getAllTax);
+router
+  .route("/delete-tax-master-by-id/:id")
+  .delete(verifyJWT, adminOnly, deleteTaxMaster);
+
+// // routes for location Master
+router.route("/create-location-master").post(verifyJWT, adminOnly, createLocationMaster);
+router.route("/update-location-master/:id").put(verifyJWT, adminOnly, updateLocationMaster);
+router.get("/get-location-by-country-city",verifyJWT,adminOnly,getLocationsByCountryAndCity);
+router.route("/get-location-master/:id").get(verifyJWT, adminOnly, getLocationMasterById);
+router.route("/get-all-location-master").post(verifyJWT, getAllLocationMasters);
+router.route("/delete-location-master-by-id/:id").delete(verifyJWT, adminOnly, deleteLocationMaster);
 
 //session masters
-router.route("/create-session").post(verifyJWT, adminOnly, multer.uploadSingle("image"), createSession);
+router
+  .route("/create-session")
+  .post(verifyJWT, adminOnly, multer.uploadSingle("image"), createSession);
 router.route("/get-all-sessions").get(verifyJWT, getAllSessions);
 router.route("/get-session-by-id/:id").get(verifyJWT, getSessionById);
-router.route("/update-session/:id").put(verifyJWT, adminOnly,multer.uploadSingle("image"), updateSession);
+router
+  .route("/update-session/:id")
+  .put(verifyJWT, adminOnly, multer.uploadSingle("image"), updateSession);
 router.route("/delete-session/:id").delete(verifyJWT, adminOnly, deleteSession);
 
 //category masters
 router.route("/create-category").post(verifyJWT, adminOnly, createCategory);
 router.route("/get-all-categories").get(verifyJWT, getAllCategory);
-router.route("/delete-category/:id").delete(verifyJWT, adminOnly, deleteCategory);
+router
+  .route("/delete-category/:id")
+  .delete(verifyJWT, adminOnly, deleteCategory);
 router.route("/update-category/:id").put(verifyJWT, adminOnly, updateCategory);
 router.route("/get-category-by-id/:id").get(verifyJWT, getSingleCategory);
 
@@ -141,10 +142,6 @@ router.route("/delete-all-city").delete(deleteAllCities);
 // router.route("/get-all-PetType").get(getAllPetTypes);
 // router.route("/get-PetType/:PetTypeId").get(getPetType);
 // router.route("/delete-PetType/:id").delete(deletePetType);
-
-
-
-
 
 // // extra price
 // router.route("/create-extra-charge").post(verifyJWT, adminOnly,createExtraCharge);
