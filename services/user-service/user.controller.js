@@ -21,6 +21,9 @@ import mongoose from "mongoose";
 import {Notification} from "../../models/notification.model.js"
 import { OrderDetails } from "../../models/order.model.js";
 import { TimeSlot } from "../../models/timeslot.model.js";
+import { Subscription } from "../../models/subscription.model.js";
+import { Session } from "../../models/service.model.js";
+
 
 //Update User status
 const updateUserStatus = asyncHandler(async (req, res) => {
@@ -720,8 +723,10 @@ const getAllSubscriptionsRatingReviews = asyncHandler(async (req, res) => {
   const reviews = await SubscriptionRatingReview.find()
     .populate("created_by", "first_name email")
     .populate("trainer", "first_name email")
+    .populate("sessionId") 
+    .populate("subscriptionId") 
     .exec();
-
+ 
   if (!reviews.length) {
     return res.status(200).json(
       new ApiResponse(200, {

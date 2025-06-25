@@ -5,7 +5,7 @@ const sessionSchema = new Schema(
     {
       categoryId: {
         type: Schema.Types.ObjectId,
-        ref: "User",
+        ref: "Category",
         default: null,
       },
       sessionName: {
@@ -34,4 +34,4 @@ const sessionSchema = new Schema(
   );
 
 
-export const Sessions = mongoose.model("Sessions", sessionSchema);
+export const Session = mongoose.model("Session", sessionSchema);

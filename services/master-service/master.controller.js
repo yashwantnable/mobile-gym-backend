@@ -6,14 +6,19 @@ import {
   uploadOnCloudinary,
   deleteFromCloudinary,
 } from "../../utils/cloudinary.js";
-import { City, Country, LocationMaster, TaxMaster, TenureModel } from "../../models/master.model.js"
+import {
+  City,
+  Country,
+  LocationMaster,
+  TaxMaster,
+  TenureModel,
+} from "../../models/master.model.js";
 import cities from "../../utils/seeds/cities.js";
-import countries from "../../utils/seeds/countries.js"
-import pagination from "../../utils/pagination.js"
+import countries from "../../utils/seeds/countries.js";
+import pagination from "../../utils/pagination.js";
 import { UserRole } from "../../models/userRole.model.js";
 import { CategoryModel } from "../../models/categories.model.js";
-import {Sessions} from "../../models/service.model.js";
-
+import { Session } from "../../models/service.model.js";
 
 // Create Tenure
 const createTenure = asyncHandler(async (req, res) => {
@@ -28,7 +33,9 @@ const createTenure = asyncHandler(async (req, res) => {
   if (missingFields.length > 0) {
     return res
       .status(400)
-      .json(new ApiError(400, `Missing required field: ${missingFields.join(", ")}`));
+      .json(
+        new ApiError(400, `Missing required field: ${missingFields.join(", ")}`)
+      );
   }
 
   const existingTenure = await TenureModel.findOne({ name });
@@ -79,7 +86,9 @@ const updateTenure = asyncHandler(async (req, res) => {
   }
 
   if (Object.keys(req.body).length === 0) {
-    return res.status(400).json(new ApiError(400, "No data provided to update"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "No data provided to update"));
   }
 
   const { name, duration, description } = req.body;
@@ -115,17 +124,12 @@ const deleteTenure = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Tenure deleted successfully"));
 });
 
-
-
-
-
 /////////////////////////////////////////////////////// Catagory ////////////////////////////////////////////////////////
 // create Catagory
 const createCategory = asyncHandler(async (req, res) => {
   console.log("req.body", req.body);
 
   const { cName, cLevel } = req.body;
-
 
   const requiredFields = { cName, cLevel };
 
@@ -152,30 +156,33 @@ const createCategory = asyncHandler(async (req, res) => {
     cName,
     cLevel,
   });
- console.log("createdCategory:",createdCategory);
- 
+  console.log("createdCategory:", createdCategory);
+
   return res
     .status(201)
-    .json(new ApiResponse(201, createdCategory, "Category created successfully"));
+    .json(
+      new ApiResponse(201, createdCategory, "Category created successfully")
+    );
 });
 // get all Catagory
 const getAllCategory = asyncHandler(async (req, res) => {
   const allCategories = await CategoryModel.find({});
-  res.status(200).json(new ApiResponse(200, allCategories, "all Categories fetched successfully"));
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, allCategories, "all Categories fetched successfully")
+    );
 });
 
 const deleteCategory = asyncHandler(async (req, res) => {
-
-  if (req.params.id =="undefined" || !req.params.id) {
+  if (req.params.id == "undefined" || !req.params.id) {
     return res.status(400).json(new ApiError(400, "id not provided"));
   }
 
   const deleteCategory = await CategoryModel.findByIdAndDelete(req.params.id);
 
   if (!deleteCategory) {
-    return res
-    .status(404)
-    .json(new ApiError(404, "Category not found"));
+    return res.status(404).json(new ApiError(404, "Category not found"));
   }
 
   return res
@@ -185,14 +192,15 @@ const deleteCategory = asyncHandler(async (req, res) => {
 
 //update category
 const updateCategory = asyncHandler(async (req, res) => {
-
-  if (req.params.id =="undefined" || !req.params.id) {
-      return res.status(400).json(new ApiError(400, "id not provided"));
+  if (req.params.id == "undefined" || !req.params.id) {
+    return res.status(400).json(new ApiError(400, "id not provided"));
   }
 
   if (Object.keys(req.body).length === 0) {
-      return res.status(400).json(new ApiError(400, "No data provided to update"))
-  } 
+    return res
+      .status(400)
+      .json(new ApiError(400, "No data provided to update"));
+  }
 
   const { cName, cLevel } = req.body;
 
@@ -207,15 +215,13 @@ const updateCategory = asyncHandler(async (req, res) => {
   );
 
   if (!updatedCategory) {
-    return res
-    .status(404)
-    .json(new ApiError(404, "Category not found"));
-    
+    return res.status(404).json(new ApiError(404, "Category not found"));
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200,updatedCategory,"Category updated successfully")
+    .json(
+      new ApiResponse(200, updatedCategory, "Category updated successfully")
     );
 });
 
@@ -275,7 +281,6 @@ const createRole = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, createdRole, "Role created successfully"));
 });
 
-
 // Update role
 const updateRole = asyncHandler(async (req, res) => {
   if (req.params.id == "undefined" || !req.params.id) {
@@ -308,7 +313,6 @@ const updateRole = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, updatedRole, "Role updated successfully"));
 });
-
 
 // get all Role
 const getAllRole = asyncHandler(async (req, res) => {
@@ -376,7 +380,6 @@ const getAllRole = asyncHandler(async (req, res) => {
   }
 });
 
-
 // Get role by id
 const getRoleById = asyncHandler(async (req, res) => {
   if (req.params.id == "undefined" || !req.params.id) {
@@ -394,7 +397,6 @@ const getRoleById = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, role, "Role fetched successfully"));
 });
 
-
 // Get all active permission
 const getAllActiveRole = asyncHandler(async (req, res) => {
   const role = await UserRole.find({ active: true }).sort({ _id: -1 });
@@ -404,26 +406,19 @@ const getAllActiveRole = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, role, "Role fetched successfully"));
 });
 
-
-
 ///////////////////////////////////////////////////// COUNTRY /////////////////////////////////////////////////
 // create country
 const createCountry = asyncHandler(async (req, res) => {
-
   if (!Array.isArray(countries) || countries.length === 0) {
-    return res
-      .status(400)
-      .json(new ApiResponse(400, "No countries provided"));
+    return res.status(400).json(new ApiResponse(400, "No countries provided"));
   }
 
   const createdCountry = await Country.create(countries);
 
   return res
     .status(201)
-    .json(new ApiResponse(201, createdCountry, "Country created successfully")
-    );
-})
-
+    .json(new ApiResponse(201, createdCountry, "Country created successfully"));
+});
 
 //UpdateCountry
 const updateCountry = asyncHandler(async (req, res) => {
@@ -455,21 +450,17 @@ const updateCountry = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, updatedCountry, "Country updated successfully"));
 });
 
-
 // get all country
 const getAllCountry = asyncHandler(async (req, res) => {
   const allCountry = await Country.find();
 
   return res
     .status(200)
-    .json(new ApiResponse(200, allCountry, "Country fetched successfully")
-    );
+    .json(new ApiResponse(200, allCountry, "Country fetched successfully"));
 });
-
 
 // get Country by Id
 const getCountryById = asyncHandler(async (req, res) => {
-
   if (req.params.id == "undefined" || !req.params.id) {
     return res.status(400).json(new ApiError(400, "id not provided"));
   }
@@ -477,21 +468,16 @@ const getCountryById = asyncHandler(async (req, res) => {
   const country = await Country.findById(req.params.id);
 
   if (!country) {
-    return res
-      .status(404)
-      .json(new ApiError(404, "Country not found"));
+    return res.status(404).json(new ApiError(404, "Country not found"));
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, country, "Country fetched successfully")
-    );
+    .json(new ApiResponse(200, country, "Country fetched successfully"));
 });
-
 
 //deleteallcountry
 const deleteAllCountry = asyncHandler(async (req, res) => {
-
   await Country.deleteMany({});
 
   return res
@@ -499,26 +485,19 @@ const deleteAllCountry = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, null, "All country deleted successfully"));
 });
 
-
-
 //////////////////////////////////////////////////////// CITY ////////////////////////////////////////////////////////
 // createcity
 const createCity = asyncHandler(async (req, res) => {
-
   if (!Array.isArray(cities) || cities.length === 0) {
-    return res
-      .status(400)
-      .json(new ApiResponse(400, "No cities provided"));
+    return res.status(400).json(new ApiResponse(400, "No cities provided"));
   }
 
   const createdCity = await City.create(cities);
 
   return res
     .status(201)
-    .json(new ApiResponse(201, createdCity, "City created successfully")
-    );
-})
-
+    .json(new ApiResponse(201, createdCity, "City created successfully"));
+});
 
 //update city by city id
 const updateCity = asyncHandler(async (req, res) => {
@@ -529,9 +508,10 @@ const updateCity = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "City ID not provided"));
   }
 
-
   if (!updatedCityData || Object.keys(updatedCityData).length === 0) {
-    return res.status(400).json(new ApiError(400, "No data provided to update"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "No data provided to update"));
   }
 
   const city = await City.findById(cityId);
@@ -540,23 +520,18 @@ const updateCity = asyncHandler(async (req, res) => {
     return res.status(404).json(new ApiError(404, "City not found"));
   }
 
-
   // Update the city data
-  const updatedCity = await City.findByIdAndUpdate(
-    cityId,
-    updatedCityData,
-    { new: true }
-  );
+  const updatedCity = await City.findByIdAndUpdate(cityId, updatedCityData, {
+    new: true,
+  });
 
-  return res.status(200).json(
-    new ApiResponse(200, updatedCity, "City updated successfully")
-  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedCity, "City updated successfully"));
 });
-
 
 // get all City by country
 const getAllCity = asyncHandler(async (req, res) => {
-
   if (req.params.countryId == "undefined" || !req.params.countryId) {
     return res.status(400).json(new ApiError(400, "id not provided"));
   }
@@ -564,14 +539,11 @@ const getAllCity = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, allCity, "City fetched successfully")
-    );
+    .json(new ApiResponse(200, allCity, "City fetched successfully"));
 });
-
 
 // get City by Id
 const getCityById = asyncHandler(async (req, res) => {
-
   if (req.params.id == "undefined" || !req.params.id) {
     return res.status(400).json(new ApiError(400, "id not provided"));
   }
@@ -579,21 +551,16 @@ const getCityById = asyncHandler(async (req, res) => {
   const city = await City.findById(req.params.id);
 
   if (!city) {
-    return res
-      .status(404)
-      .json(new ApiError(404, "City not found"));
+    return res.status(404).json(new ApiError(404, "City not found"));
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, city, "City fetched successfully")
-    );
+    .json(new ApiResponse(200, city, "City fetched successfully"));
 });
-
 
 //deleteAllcities
 const deleteAllCities = asyncHandler(async (req, res) => {
-
   await City.deleteMany({});
 
   return res
@@ -601,33 +568,33 @@ const deleteAllCities = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, null, "All cities deleted successfully"));
 });
 
-
-
-
 /////////////////////////////////////////////////////// SERVICE ////////////////////////////////////////////////////////
-// Create Sessions
+// Create Session
 const createSession = asyncHandler(async (req, res) => {
   const { categoryId, sessionName } = req.body;
   const imageLocalPath = req.file?.path;
-console.log("req.body:",req.body);
+  console.log("req.body:", req.body);
 
- 
-  if (!categoryId||!sessionName) {
+  if (!categoryId || !sessionName) {
     return res
       .status(400)
-      .json(new ApiError(400, `Missing or invalid fields: all fields are required`));
+      .json(
+        new ApiError(400, `Missing or invalid fields: all fields are required`)
+      );
   }
 
   let image = null;
   if (imageLocalPath) {
     const uploadedImage = await uploadOnCloudinary(imageLocalPath);
     if (!uploadedImage?.url) {
-      return res.status(400).json(new ApiError(400, "Error while uploading image"));
+      return res
+        .status(400)
+        .json(new ApiError(400, "Error while uploading image"));
     }
     image = uploadedImage.url;
   }
 
-  const session = await Sessions.create({
+  const session = await Session.create({
     categoryId,
     sessionName,
     image,
@@ -639,34 +606,32 @@ console.log("req.body:",req.body);
     .json(new ApiResponse(201, session, "Session created successfully"));
 });
 
-
-
 // Get getAllSessions
 const getAllSessions = asyncHandler(async (req, res) => {
-  const sessions = await Sessions.find().populate("categoryId");
-  res.status(200).json(new ApiResponse(200, sessions, "Sessions fetched successfully"));
+  const session = await Session.find().populate("categoryId");
+  res
+    .status(200)
+    .json(new ApiResponse(200, session, "Session fetched successfully"));
 });
 
-
-
-// Get Sessions by ID
+// Get Session by ID
 const getSessionById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!id) {
     return res.status(400).json(new ApiError(400, "Session ID is required"));
   }
 
-  const session = await Sessions.findById(id).populate("categoryId");
+  const session = await Session.findById(id).populate("categoryId");
   if (!session) {
     return res.status(404).json(new ApiError(404, "Session not found"));
   }
 
-  res.status(200).json(new ApiResponse(200, session, "Session fetched successfully"));
+  res
+    .status(200)
+    .json(new ApiResponse(200, session, "Session fetched successfully"));
 });
 
-
-
-// Update Sessions
+// Update Session
 const updateSession = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { sessionName, categoryId } = req.body;
@@ -677,10 +642,12 @@ const updateSession = asyncHandler(async (req, res) => {
   }
 
   if (!sessionName && !categoryId && !imageLocalPath) {
-    return res.status(400).json(new ApiError(400, "No data provided to update"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "No data provided to update"));
   }
 
-  const existingSession = await Sessions.findById(id);
+  const existingSession = await Session.findById(id);
   if (!existingSession) {
     return res.status(404).json(new ApiError(404, "Session not found"));
   }
@@ -704,27 +671,27 @@ const updateSession = asyncHandler(async (req, res) => {
     }
   }
 
-  const updatedSession = await Sessions.findByIdAndUpdate(
+  const updatedSession = await Session.findByIdAndUpdate(
     id,
     {
       sessionName: sessionName || existingSession.sessionName,
       categoryId: categoryId || existingSession.categoryId,
       image,
-      updated_by: req.user._id
+      updated_by: req.user._id,
     },
     { new: true }
   );
 
-  res.status(200).json(new ApiResponse(200, updatedSession, "Session updated successfully"));
+  res
+    .status(200)
+    .json(new ApiResponse(200, updatedSession, "Session updated successfully"));
 });
 
-
-
-// Delete Sessions
+// Delete Session
 const deleteSession = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const session = await Sessions.findById(id);
+  const session = await Session.findById(id);
   if (!session) {
     return res.status(404).json(new ApiError(404, "Session not found"));
   }
@@ -733,22 +700,44 @@ const deleteSession = asyncHandler(async (req, res) => {
     await deleteFromCloudinary(session.image);
   }
 
-  await Sessions.findByIdAndDelete(id);
+  await Session.findByIdAndDelete(id);
 
-  res.status(200).json(new ApiResponse(200, null, "Session deleted successfully"));
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "Session deleted successfully"));
 });
 
+// Get Sessions by categoryId
+const getSessionsByCategoryId = asyncHandler(async (req, res) => {
+  const { categoryId } = req.params;
 
+  if (!categoryId) {
+    return res.status(400).json(new ApiError(400, "Category ID is required"));
+  }
 
+  const sessions = await Session.find({ categoryId }).populate("categoryId");
+
+  if (!sessions.length) {
+    return res
+      .status(404)
+      .json(new ApiResponse(200, [], "No sessions found for this category"));
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, sessions, "Sessions fetched successfully"));
+});
 
 ////////////////////////////////////////////////////// BREED ////////////////////////////////////////////////////////
 // CREATE Location Master
 const createLocationMaster = asyncHandler(async (req, res) => {
   // console.log("location res:",req.body)
-  const { streetName, country,pin,city,pinAddress, is_active } = req.body;
+  const { streetName, country, pin, city, pinAddress, is_active } = req.body;
 
   if (!streetName) {
-    return res.status(400).json(new ApiError(400, "Missing required field: streetName"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "Missing required field: streetName"));
   }
 
   const createdLocation = await LocationMaster.create({
@@ -761,9 +750,15 @@ const createLocationMaster = asyncHandler(async (req, res) => {
     created_by: req.user?._id,
   });
 
-  return res.status(201).json(
-    new ApiResponse(201, createdLocation, "Location Master created successfully")
-  );
+  return res
+    .status(201)
+    .json(
+      new ApiResponse(
+        201,
+        createdLocation,
+        "Location Master created successfully"
+      )
+    );
 });
 
 // UPDATE Location Master
@@ -773,10 +768,12 @@ const updateLocationMaster = asyncHandler(async (req, res) => {
   }
 
   if (Object.keys(req.body).length === 0) {
-    return res.status(400).json(new ApiError(400, "No data provided to update"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "No data provided to update"));
   }
 
-  const { streetName, country,city,pin,pinAddress, is_active } = req.body;
+  const { streetName, country, city, pin, pinAddress, is_active } = req.body;
 
   const updatedLocation = await LocationMaster.findByIdAndUpdate(
     req.params.id,
@@ -796,18 +793,22 @@ const updateLocationMaster = asyncHandler(async (req, res) => {
     return res.status(404).json(new ApiError(404, "Location Master not found"));
   }
 
-  return res.status(200).json(
-    new ApiResponse(200, updatedLocation, "Location Master updated successfully")
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        updatedLocation,
+        "Location Master updated successfully"
+      )
+    );
 });
 
 const getLocationsByCountryAndCity = asyncHandler(async (req, res) => {
   const { country, city } = req.query;
 
   if (!country) {
-    return res
-      .status(400)
-      .json(new ApiError(400, "Country is required"));
+    return res.status(400).json(new ApiError(400, "Country is required"));
   }
 
   const filter = {
@@ -820,7 +821,7 @@ const getLocationsByCountryAndCity = asyncHandler(async (req, res) => {
       filter.city = city;
     } else {
       // Match city name case-insensitively
-      filter.city = { $regex: new RegExp(`^${city}$`, 'i') };
+      filter.city = { $regex: new RegExp(`^${city}$`, "i") };
     }
   }
 
@@ -839,10 +840,9 @@ const getLocationsByCountryAndCity = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, locations, "Locations fetched successfully"));
 });
 
-
 // GET ALL Location Masters (with pagination)
 const getAllLocationMasters = asyncHandler(async (req, res) => {
-  const { search = '' } = req.query;
+  const { search = "" } = req.query;
   const { filter, page, limit, sortOrder } = req.body;
 
   if (filter?.country) {
@@ -850,13 +850,10 @@ const getAllLocationMasters = asyncHandler(async (req, res) => {
   }
 
   let searchCondition = {};
-  if (search && search !== 'undefined') {
-    const regex = new RegExp(search, 'i');
+  if (search && search !== "undefined") {
+    const regex = new RegExp(search, "i");
     searchCondition = {
-      $or: [
-        { name: { $regex: regex } },
-        { 'Country.name': { $regex: regex } },
-      ],
+      $or: [{ name: { $regex: regex } }, { "Country.name": { $regex: regex } }],
     };
   }
 
@@ -868,15 +865,15 @@ const getAllLocationMasters = asyncHandler(async (req, res) => {
   const aggregations = [
     {
       $lookup: {
-        from: 'countries',
-        localField: 'country',
-        foreignField: '_id',
-        as: 'Country',
+        from: "countries",
+        localField: "country",
+        foreignField: "_id",
+        as: "Country",
       },
     },
     {
       $unwind: {
-        path: '$Country',
+        path: "$Country",
         preserveNullAndEmptyArrays: true,
       },
     },
@@ -898,15 +895,25 @@ const getAllLocationMasters = asyncHandler(async (req, res) => {
     ]).exec();
   }
 
-  return res.status(200).json(
-    new ApiResponse(200, { allLocationMasters, page, limit, totalPages, totalCount }, totalCount ? "Location Master fetched successfully" : "No Location Master found")
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { allLocationMasters, page, limit, totalPages, totalCount },
+        totalCount
+          ? "Location Master fetched successfully"
+          : "No Location Master found"
+      )
+    );
 });
 
 // GET All Location Masters (no pagination)
 const getAllLocations = asyncHandler(async (req, res) => {
-  const allLocations = await LocationMaster.find().populate('country');
-  return res.status(200).json(new ApiResponse(200, allLocations, "Locations fetched successfully"));
+  const allLocations = await LocationMaster.find().populate("country");
+  return res
+    .status(200)
+    .json(new ApiResponse(200, allLocations, "Locations fetched successfully"));
 });
 
 // GET Location Master by ID
@@ -915,13 +922,19 @@ const getLocationMasterById = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "id not provided"));
   }
 
-  const location = await LocationMaster.findById(req.params.id).populate('country');
+  const location = await LocationMaster.findById(req.params.id).populate(
+    "country"
+  );
 
   if (!location) {
     return res.status(404).json(new ApiError(404, "Location Master not found"));
   }
 
-  return res.status(200).json(new ApiResponse(200, location, "Location Master fetched successfully"));
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, location, "Location Master fetched successfully")
+    );
 });
 
 // DELETE Location Master
@@ -936,25 +949,30 @@ const deleteLocationMaster = asyncHandler(async (req, res) => {
     return res.status(404).json(new ApiError(404, "Location Master not found"));
   }
 
-  return res.status(200).json(new ApiResponse(200, "Location Master deleted successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Location Master deleted successfully"));
 });
-
-
-
-
 
 // create tax master
 const createTaxMaster = asyncHandler(async (req, res) => {
   const { name, rate, country, is_active } = req.body;
 
   const requiredFields = {
-    name, rate
+    name,
+    rate,
   };
-  
-  const missingFields = Object.keys(requiredFields).filter(field => !requiredFields[field] || requiredFields[field] === 'undefined');
-  
+
+  const missingFields = Object.keys(requiredFields).filter(
+    (field) => !requiredFields[field] || requiredFields[field] === "undefined"
+  );
+
   if (missingFields.length > 0) {
-    return res.status(400).json(new ApiError(400, `Missing required field: ${missingFields.join(', ')}`));
+    return res
+      .status(400)
+      .json(
+        new ApiError(400, `Missing required field: ${missingFields.join(", ")}`)
+      );
   }
 
   // if (country) {
@@ -974,21 +992,22 @@ const createTaxMaster = asyncHandler(async (req, res) => {
 
   return res
     .status(201)
-    .json(new ApiResponse(201, createdTaxMaster, "TaxMaster created successfully")
+    .json(
+      new ApiResponse(201, createdTaxMaster, "TaxMaster created successfully")
     );
 });
 
-
 // update Tax Master
 const updateTaxMaster = asyncHandler(async (req, res) => {
-
-  if (req.params.id =="undefined" || !req.params.id) {
-      return res.status(400).json(new ApiError(400, "id not provided"));
+  if (req.params.id == "undefined" || !req.params.id) {
+    return res.status(400).json(new ApiError(400, "id not provided"));
   }
 
   if (Object.keys(req.body).length === 0) {
-      return res.status(400).json(new ApiError(400, "No data provided to update"))
-  } 
+    return res
+      .status(400)
+      .json(new ApiError(400, "No data provided to update"));
+  }
 
   const { name, rate, country, is_active } = req.body;
 
@@ -1012,23 +1031,20 @@ const updateTaxMaster = asyncHandler(async (req, res) => {
   );
 
   if (!updatedTaxMaster) {
-    return res
-    .status(404)
-    .json(new ApiError(404, "Tax Master not found"));
-    
+    return res.status(404).json(new ApiError(404, "Tax Master not found"));
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200,updatedTaxMaster,"Tax Master updated successfully")
+    .json(
+      new ApiResponse(200, updatedTaxMaster, "Tax Master updated successfully")
     );
 });
 
-
 // get all Tax Master
 const getAllTaxMaster = asyncHandler(async (req, res) => {
-  const { search = '' } = req.query;
-  const { filter, page, limit, sortOrder } = req.body; 
+  const { search = "" } = req.query;
+  const { filter, page, limit, sortOrder } = req.body;
 
   if (filter?.country) {
     filter.country = new mongoose.Types.ObjectId(filter.country);
@@ -1036,14 +1052,14 @@ const getAllTaxMaster = asyncHandler(async (req, res) => {
 
   let searchCondition = {};
 
-  if (search && search !== 'undefined') {
-    const regex = new RegExp(search, 'i');
+  if (search && search !== "undefined") {
+    const regex = new RegExp(search, "i");
     searchCondition = {
       $or: [
-        { name: { $regex: regex } },              
+        { name: { $regex: regex } },
         { rate: { $regex: regex } },
-        { 'Country.name': { $regex: regex } } 
-      ]
+        { "Country.name": { $regex: regex } },
+      ],
     };
   }
 
@@ -1055,7 +1071,7 @@ const getAllTaxMaster = asyncHandler(async (req, res) => {
   const aggregations = [
     {
       $lookup: {
-        from: "countries", 
+        from: "countries",
         localField: "country",
         foreignField: "_id",
         as: "Country",
@@ -1063,16 +1079,17 @@ const getAllTaxMaster = asyncHandler(async (req, res) => {
     },
     {
       $unwind: {
-        path: '$Country',
+        path: "$Country",
         preserveNullAndEmptyArrays: true,
       },
     },
     {
-      $match: combinedFilter  
-    }
+      $match: combinedFilter,
+    },
   ];
 
-  const { newOffset, newLimit, totalPages, totalCount, newSortOrder } = await pagination(TaxMaster, page, limit, sortOrder, aggregations);
+  const { newOffset, newLimit, totalPages, totalCount, newSortOrder } =
+    await pagination(TaxMaster, page, limit, sortOrder, aggregations);
 
   let allTaxMaster = [];
 
@@ -1082,7 +1099,7 @@ const getAllTaxMaster = asyncHandler(async (req, res) => {
       {
         $project: {
           country: 0,
-        }
+        },
       },
       {
         $sort: { _id: newSortOrder },
@@ -1095,59 +1112,64 @@ const getAllTaxMaster = asyncHandler(async (req, res) => {
       },
     ]).exec();
 
-    return res.status(200).json(new ApiResponse(200, { allTaxMaster, page, limit, totalPages, totalCount }, "Tax Master fetched successfully"));
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          { allTaxMaster, page, limit, totalPages, totalCount },
+          "Tax Master fetched successfully"
+        )
+      );
   } else {
-    return res.status(200).json(new ApiResponse(200, { allTaxMaster, page, limit, totalPages, totalCount }, "No Tax master found"));
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          { allTaxMaster, page, limit, totalPages, totalCount },
+          "No Tax master found"
+        )
+      );
   }
-
 });
-
 
 // get all tax without pagination
 const getAllTax = asyncHandler(async (req, res) => {
-  const allTax = await TaxMaster.find()
-  .populate("country")
+  const allTax = await TaxMaster.find().populate("country");
 
   return res
-    .status(200).json(new ApiResponse(200, allTax, "Tax fetched successfully"));
+    .status(200)
+    .json(new ApiResponse(200, allTax, "Tax fetched successfully"));
 });
-
 
 // Get Tax Master by ID
 const getTaxMasterById = asyncHandler(async (req, res) => {
-
-  if (req.params.id =="undefined" || !req.params.id) {
+  if (req.params.id == "undefined" || !req.params.id) {
     return res.status(400).json(new ApiError(400, "id not provided"));
   }
 
-  const taxMaster = await TaxMaster.findById(req.params.id).populate('country');
+  const taxMaster = await TaxMaster.findById(req.params.id).populate("country");
 
   if (!taxMaster) {
-    return res
-    .status(404)
-    .json(new ApiError(404, "Tax master not found"));
+    return res.status(404).json(new ApiError(404, "Tax master not found"));
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, taxMaster, "Tax master fetched successfully")
-    );
+    .json(new ApiResponse(200, taxMaster, "Tax master fetched successfully"));
 });
-
 
 // delete tax master
 const deleteTaxMaster = asyncHandler(async (req, res) => {
-
-  if (req.params.id =="undefined" || !req.params.id) {
+  if (req.params.id == "undefined" || !req.params.id) {
     return res.status(400).json(new ApiError(400, "id not provided"));
   }
 
   const taxMaster = await TaxMaster.findByIdAndDelete(req.params.id);
 
   if (!taxMaster) {
-    return res
-    .status(404)
-    .json(new ApiError(404, "Tax Master not found"));
+    return res.status(404).json(new ApiError(404, "Tax Master not found"));
   }
 
   return res
@@ -1155,28 +1177,26 @@ const deleteTaxMaster = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Tax Master deleted successfully"));
 });
 
-
-
-
 export {
   createLocationMaster,
-updateLocationMaster,
-getAllLocationMasters,
-getAllLocations,
-getLocationsByCountryAndCity,
-getLocationMasterById,
-deleteLocationMaster,
-
-   createTenure,
+  updateLocationMaster,
+  getAllLocationMasters,
+  getAllLocations,
+  getLocationsByCountryAndCity,
+  getLocationMasterById,
+  deleteLocationMaster,
+  createTenure,
   getAllTenure,
   getSingleTenure,
   updateTenure,
   deleteTenure,
+  
+  getSessionsByCategoryId,
   createSession,
-getAllSessions,
-getSessionById,
-updateSession,
-deleteSession,
+  getAllSessions,
+  getSessionById,
+  updateSession,
+  deleteSession,
   createCategory,
   getAllCategory,
   deleteCategory,
@@ -1186,32 +1206,29 @@ deleteSession,
   updateRole,
   // getRoleById,
   getAllRole,
-  getAllActiveRole, 
-
-   createTaxMaster,
+  getAllActiveRole,
+  createTaxMaster,
   updateTaxMaster,
   getAllTaxMaster,
   getAllTax,
   getTaxMasterById,
   deleteTaxMaster,
-
   createCountry,
   updateCountry,
   getAllCountry,
   getCountryById,
   deleteAllCountry,
-
   createCity,
   updateCity,
   getAllCity,
   getCityById,
   deleteAllCities,
 
-  // createServiceType,
-  // getAllServiceTypes,
-  // getServiceTypeById,
-  // updateServiceType,
-  // deleteServiceType,
+  // createSubscription,
+  // getAllSubscription,
+  // getSubscriptionById,
+  // updateSubscription,
+  // deleteSubscription,
 
   // createBreed,
   // updateBreed,
@@ -1224,8 +1241,6 @@ deleteSession,
   // getPetType,
   // getAllPetTypes,
   // deletePetType,
-
- 
 
   // createExtraCharge,
   // updateExtraCharge,

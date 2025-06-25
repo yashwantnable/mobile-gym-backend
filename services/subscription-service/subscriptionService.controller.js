@@ -5,7 +5,7 @@ import { uploadOnCloudinary, deleteFromCloudinary } from "../../utils/cloudinary
 import { Subscription } from "../../models/subscription.model.js";
 
 // Create Subscription
-const createServiceType = asyncHandler(async (req, res) => {
+const createSubscription = asyncHandler(async (req, res) => {
   const { name, categoryId, sessionType, duration, price, subscriptionLink, description,location, isActive } = req.body;
 
   if (!name || !categoryId || !sessionType || !duration || !price) {
@@ -46,13 +46,13 @@ const createServiceType = asyncHandler(async (req, res) => {
 });
 
 // Get all ServiceTypes
-const getAllServiceTypes = asyncHandler(async (req, res) => {
+const getAllSubscription = asyncHandler(async (req, res) => {
   const services = await Subscription.find().populate("categoryId sessionType duration");
   return res.status(200).json(new ApiResponse(200, services, "All services fetched successfully"));
 });
 
 // Get Subscription by ID
-const getServiceTypeById = asyncHandler(async (req, res) => {
+const getSubscriptionById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const service = await Subscription.findById(id).populate("categoryId sessionType");
   if (!service) {
@@ -62,7 +62,7 @@ const getServiceTypeById = asyncHandler(async (req, res) => {
 });
 
 // Update Subscription
-const updateServiceType = asyncHandler(async (req, res) => {
+const updateSubscription = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { name, categoryId, sessionType, duration, price, subscriptionLink, description,location, isActive } = req.body;
 
@@ -110,7 +110,7 @@ const updateServiceType = asyncHandler(async (req, res) => {
 });
 
 // Delete Subscription
-const deleteServiceType = asyncHandler(async (req, res) => {
+const deleteSubscription = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const service = await Subscription.findById(id);
   if (!service) {
@@ -123,10 +123,36 @@ const deleteServiceType = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, {}, "Service deleted successfully"));
 });
 
+
+// Get Subscriptions by Category ID
+const getSubscriptionsByCategoryId = asyncHandler(async (req, res) => {
+  const { categoryId } = req.params;
+
+  if (!categoryId) {
+    return res.status(400).json(new ApiError(400, "Category ID is required"));
+  }
+
+  const subscriptions = await Subscription.find({ categoryId })
+    .populate("categoryId sessionType duration")
+    .sort({ createdAt: -1 });
+
+  if (!subscriptions.length) {
+    return res.status(200).json(
+      new ApiResponse(200, [], "No subscriptions found for this category")
+    );
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, subscriptions, "Subscriptions fetched by category ID")
+  );
+});
+
+
 export {
-  createServiceType,
-  getAllServiceTypes,
-  getServiceTypeById,
-  updateServiceType,
-  deleteServiceType,
+  getSubscriptionsByCategoryId,
+  createSubscription,
+  getAllSubscription,
+  getSubscriptionById,
+  updateSubscription,
+  deleteSubscription,
 }; 

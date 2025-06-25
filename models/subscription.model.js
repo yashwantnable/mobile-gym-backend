@@ -15,7 +15,7 @@ const subscriptionSchema = new Schema(
     },
     sessionType: {
       type: Schema.Types.ObjectId,
-      ref: "Sessions",
+      ref: "Session",
       required: true,
     },
     duration: {

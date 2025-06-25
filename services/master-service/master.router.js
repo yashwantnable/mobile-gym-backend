@@ -51,6 +51,7 @@ deleteLocationMaster,
   deleteCategory,
   updateCategory,
   getSingleCategory,
+  getSessionsByCategoryId,
 } from "./master.controller.js";
 
 const router = Router();
@@ -88,6 +89,8 @@ router
   .post(verifyJWT, adminOnly, multer.uploadSingle("image"), createSession);
 router.route("/get-all-sessions").get(verifyJWT, getAllSessions);
 router.route("/get-session-by-id/:id").get(verifyJWT, getSessionById);
+router.get("/get-session-by-category-id/:categoryId", verifyJWT, getSessionsByCategoryId);
+
 router
   .route("/update-session/:id")
   .put(verifyJWT, adminOnly, multer.uploadSingle("image"), updateSession);
@@ -122,39 +125,6 @@ router.route("/get-all-city/:countryId").get(getAllCity);
 router.route("/get-city/:id").get(getCityById);
 router.route("/delete-all-city").delete(deleteAllCities);
 
-// //service route
-// router.route("/create-service").post(verifyJWT,adminOnly, multer.uploadSingle("image"), createServiceType);
-// router.route("/get-all-services").get(verifyJWT, adminOnly, getAllServiceTypes);
-// router.route("/get-service/:id").get(verifyJWT,adminOnly, getServiceTypeById);
-// router.route("/update-service/:id").put(verifyJWT, adminOnly, multer.uploadSingle("image"), updateServiceType);
-// router.route("/delete-service/:id").delete(verifyJWT, adminOnly, deleteServiceType);
 
-// //Breed route
-// router.route("/create-breed").post(createBreed);
-// router.route("/update-breed/:breedId").put(updateBreed);
-// router.route("/get-all-breed").get(getAllBreed);
-// router.route("/get-breed/:breedId").get(getBreedById);
-// router.route("/delete-breed/:id").delete(deleteBreed);
-
-// //Petype route
-// router.route("/create-petType").post(createPetType);
-// router.route("/update-PetType/:PetTypeId").put(updatePetType);
-// router.route("/get-all-PetType").get(getAllPetTypes);
-// router.route("/get-PetType/:PetTypeId").get(getPetType);
-// router.route("/delete-PetType/:id").delete(deletePetType);
-
-// // extra price
-// router.route("/create-extra-charge").post(verifyJWT, adminOnly,createExtraCharge);
-// router.route("/update-extra-charge/:id").put(verifyJWT, adminOnly,updateExtraCharge);
-// router.route("/get-extra-charge/:id").get(verifyJWT, adminOnly,getExtraChargeById);
-// router.route("/get-all-extra-charges").get(verifyJWT, adminOnly,getAllExtraCharges);
-// router.route("/delete-extra-charge/:id").delete(verifyJWT, adminOnly,deleteExtraCharge);
-
-// // vaccine type
-// router.route("/create-vaccine").post(verifyJWT, adminOnly,createVaccine);
-// router.route("/update-vaccine/:id").put(verifyJWT, adminOnly,updateVaccine);
-// router.route("/get-vaccine/:id").get(verifyJWT, adminOnly,getVaccineById);
-// router.route("/get-all-vaccine").get(verifyJWT, adminOnly,getAllVaccines);
-// router.route("/delete-vaccine/:id").delete(verifyJWT, adminOnly,deleteVaccine);
 
 export default router;

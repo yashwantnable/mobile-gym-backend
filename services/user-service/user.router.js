@@ -59,9 +59,9 @@ router.route("/delete-address/:id").delete(verifyJWT, customerOnly, deleteAddres
 router.route("/create-subscription-rating-review").post(verifyJWT,customerOnly,createSubscriptionRatingReview);
 router.route("/update-subscription-review/:subsciptionId").put(verifyJWT,customerOnly, updateSubscriptionRatingReview);
 // router.route("/delete-trainer-review-images/:id").patch(verifyJWT, customerOnly, updateTrainerRatingReview);
-router.route("/get-rating-review/:subsciptionId").get(verifyJWT,customerOnly,getSubscriptionRatingReviewByUser);
-router.route("/get-all-subscription-rating-review/:subsciptionId").get(verifyJWT,customerOnly,getAllSubscriptionRatingReviews);
-router.route("/get-all-subscription-rating-review").get(verifyJWT,customerOnly,getAllSubscriptionsRatingReviews);
+router.route("/get-rating-review/:subsciptionId").get(verifyJWT,getSubscriptionRatingReviewByUser);
+router.route("/get-all-subscription-rating-review/:subsciptionId").get(verifyJWT,getAllSubscriptionRatingReviews);
+router.route("/get-all-subscription-rating-review").get(verifyJWT,getAllSubscriptionsRatingReviews);
 
 router.route("/create-trainer-rating-review").post(verifyJWT,customerOnly,createTrainerRatingReview);
 router.route("/update-trainer-review/:trainerId").put(verifyJWT,customerOnly, updateTrainerRatingReview);
