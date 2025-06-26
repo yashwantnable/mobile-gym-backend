@@ -7,6 +7,7 @@ import {
   deleteFromCloudinary,
 } from "../../utils/cloudinary.js";
 import {
+  Category,
   City,
   Country,
   LocationMaster,
@@ -17,7 +18,6 @@ import cities from "../../utils/seeds/cities.js";
 import countries from "../../utils/seeds/countries.js";
 import pagination from "../../utils/pagination.js";
 import { UserRole } from "../../models/userRole.model.js";
-import { CategoryModel } from "../../models/categories.model.js";
 import { Session } from "../../models/service.model.js";
 
 // Create Tenure
@@ -129,10 +129,10 @@ const deleteTenure = asyncHandler(async (req, res) => {
 const createCategory = asyncHandler(async (req, res) => {
   console.log("req.body", req.body);
 
-  const { cName, cLevel } = req.body;
+  const { cName } = req.body;
+  const imageLocalPath = req.file?.path;
 
-  const requiredFields = { cName, cLevel };
-
+  const requiredFields = { cName };
   const missingFields = Object.keys(requiredFields).filter(
     (field) => !requiredFields[field] || requiredFields[field] === "undefined"
   );
@@ -145,17 +145,31 @@ const createCategory = asyncHandler(async (req, res) => {
       );
   }
 
-  const existingCategory = await CategoryModel.findOne({ cName });
+  const existingCategory = await Category.findOne({ cName });
   if (existingCategory) {
     return res
       .status(409)
       .json(new ApiError(409, `Category is created already`));
   }
 
-  const createdCategory = await CategoryModel.create({
+  // Upload image if provided
+  let image = null;
+  if (imageLocalPath) {
+    const uploadedImage = await uploadOnCloudinary(imageLocalPath);
+    if (!uploadedImage?.url) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Error while uploading image"));
+    }
+    image = uploadedImage.url;
+  }
+
+  const createdCategory = await Category.create({
     cName,
-    cLevel,
+    // cLevel,
+    image,
   });
+
   console.log("createdCategory:", createdCategory);
 
   return res
@@ -164,9 +178,10 @@ const createCategory = asyncHandler(async (req, res) => {
       new ApiResponse(201, createdCategory, "Category created successfully")
     );
 });
+
 // get all Catagory
 const getAllCategory = asyncHandler(async (req, res) => {
-  const allCategories = await CategoryModel.find({});
+  const allCategories = await Category.find({});
   res
     .status(200)
     .json(
@@ -179,7 +194,7 @@ const deleteCategory = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "id not provided"));
   }
 
-  const deleteCategory = await CategoryModel.findByIdAndDelete(req.params.id);
+  const deleteCategory = await Category.findByIdAndDelete(req.params.id);
 
   if (!deleteCategory) {
     return res.status(404).json(new ApiError(404, "Category not found"));
@@ -190,27 +205,44 @@ const deleteCategory = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Category deleted successfully"));
 });
 
-//update category
 const updateCategory = asyncHandler(async (req, res) => {
-  if (req.params.id == "undefined" || !req.params.id) {
+  const { id } = req.params;
+
+  if (!id || id === "undefined") {
     return res.status(400).json(new ApiError(400, "id not provided"));
   }
 
-  if (Object.keys(req.body).length === 0) {
+  if (Object.keys(req.body).length === 0 && !req.file) {
     return res
       .status(400)
       .json(new ApiError(400, "No data provided to update"));
   }
 
-  const { cName, cLevel } = req.body;
+  const { cName } = req.body;
+  const imageLocalPath = req.file?.path;
 
-  const updatedCategory = await CategoryModel.findByIdAndUpdate(
-    req.params.id,
-    {
-      cName,
-      cLevel,
-      updated_by: req.user?._id,
-    },
+  let image = null;
+  if (imageLocalPath) {
+    const uploadedImage = await uploadOnCloudinary(imageLocalPath);
+    if (!uploadedImage?.url) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Error while uploading image"));
+    }
+    image = uploadedImage.url;
+  }
+
+  const updateFields = {
+    updated_by: req.user?._id,
+  };
+
+  if (cName) updateFields.cName = cName;
+  // if (cLevel) updateFields.cLevel = cLevel;
+  if (image) updateFields.image = image;
+
+  const updatedCategory = await Category.findByIdAndUpdate(
+    id,
+    updateFields,
     { new: true }
   );
 
@@ -225,13 +257,14 @@ const updateCategory = asyncHandler(async (req, res) => {
     );
 });
 
+
 //get single category
 const getSingleCategory = asyncHandler(async (req, res) => {
   if (req.params.id == "undefined" || !req.params.id) {
     return res.status(400).json(new ApiError(400, "id not provided"));
   }
 
-  const category = await CategoryModel.findById(req.params.id);
+  const category = await Category.findById(req.params.id);
 
   if (!category) {
     return res.status(404).json(new ApiError(404, "Category not found"));

@@ -271,31 +271,21 @@ const currencySchema = new Schema(
 // categorySchema 
 const categorySchema = new Schema(
   {
-    // categoryId: {
-    //   type: Schema.Types.ObjectId,
-    //   ref: "PetType",
-    //   required: true,
-    // },
+    
     cName: {
       type: String,
       lowecase: true,
       required: true,
     },
-    cLevel: {
-      type: String,
-      lowecase: true,
-      required: true,
-    },
-    // created_by: {
-    //   type: Schema.Types.ObjectId,
-    //   ref: "User",
-    //   default: null,
+    image: {
+        type: String,
+      },
+    // cLevel: {
+    //   type: String,
+    //   lowecase: true,
+    //   required: true,
     // },
-    // updated_by: {
-    //   type: Schema.Types.ObjectId,
-    //   ref: "User",
-    //   default: null,
-    // },
+   
   },
   { timestamps: true, versionKey: false }
 );

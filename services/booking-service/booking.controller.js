@@ -503,24 +503,70 @@ const confirmTimeslotBooking = asyncHandler(async (req, res) => {
 //subscription booking
 // Create a new booking
 const createSubscriptionBooking = asyncHandler(async (req, res) => {
-  const { subscription, trainer, timeSlot } = req.body;
-console.log("booking subscription:",req.body);
+  const {
+    subscription,
+    trainer,
+    date,
+    startTime,
+    endTime,
+    country,
+    city,
+    streetName,
+    description,
+  } = req.body;
 
-  if (!subscription || !trainer || !timeSlot) {
-    throw new ApiError(400, "subscription, trainer, and timeSlot are required");
+  const imageLocalPath = req.file?.path;
+
+  console.log("booking subscription:", req.body);
+
+  // Validate required fields
+  if (
+    !subscription ||
+    !trainer ||
+    !date ||
+    !startTime ||
+    !endTime ||
+    !country||
+    city||
+    !streetName
+  ) {
+    throw new ApiError(400, "Required fields are missing");
   }
 
-  const customer = req.user._id; // from verifyJWT
+  const customer = req.user._id; // From verifyJWT
 
+  // Upload image if provided
+  let image = null;
+  if (imageLocalPath) {
+    const uploadedImage = await uploadOnCloudinary(imageLocalPath);
+    if (!uploadedImage?.url) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Error while uploading image"));
+    }
+    image = uploadedImage.url;
+  }
+
+  // Create the booking
   const newBooking = await SubscriptionBooking.create({
     subscription,
     trainer,
-    timeSlot,
     customer,
+    date, // array
+    startTime,
+    endTime,
+    country,
+    city,
+    streetName,
+    description,
+    image,
   });
 
-  return res.status(201).json(new ApiResponse(201, newBooking, "Subscription booked successfully"));
+  return res
+    .status(201)
+    .json(new ApiResponse(201, newBooking, "Subscription booked successfully"));
 });
+
 
 // Get all bookings (populate trainer, subscription, timeSlot)
 const getAllSubscriptionBookings = asyncHandler(async (req, res) => {

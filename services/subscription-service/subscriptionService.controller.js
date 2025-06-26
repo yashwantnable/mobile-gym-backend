@@ -6,17 +6,39 @@ import { Subscription } from "../../models/subscription.model.js";
 
 // Create Subscription
 const createSubscription = asyncHandler(async (req, res) => {
-  const { name, categoryId, sessionType, duration, price, subscriptionLink, description,location, isActive } = req.body;
+  const {
+    name,
+    categoryId,
+    price,
+    sessionType,
+    description,
+    city,country,streetName,
+    isActive,
+    date, 
+    startTime,
+    endTime
+  } = req.body;
 
-  if (!name || !categoryId || !sessionType || !duration || !price) {
+  let parsedDate = date;
+  if (typeof date === 'string') {
+    try {
+      parsedDate = JSON.parse(date);
+    } catch (err) {
+      return res.status(400).json(new ApiError(400, "Invalid date format"));
+    }
+  }
+
+  if (!name || !categoryId ||!sessionType|| !price || !parsedDate || !startTime || !endTime) {
     return res.status(400).json(new ApiError(400, "Missing required fields"));
+  }
+
+  if (!Array.isArray(parsedDate) || (parsedDate.length !== 1 && parsedDate.length !== 2)) {
+    return res.status(400).json(new ApiError(400, "Date must be a single date or a range of two dates"));
   }
 
   let mediaUrl = null;
   if (req.file || (req.files && req.files.media && req.files.media[0])) {
     const mediaPath = req.file ? req.file.path : req.files.media[0].path;
-   console.log("media path",mediaPath)
-     console.log(" req.file", req.file)
     const uploadedMedia = await uploadOnCloudinary(mediaPath);
     if (!uploadedMedia?.url) {
       return res.status(400).json(new ApiError(400, "Error uploading media"));
@@ -24,20 +46,18 @@ const createSubscription = asyncHandler(async (req, res) => {
     mediaUrl = uploadedMedia.url;
   }
 
-  if (isActive && (!categoryId || !sessionType)) {
-    return res.status(400).json(new ApiError(400, "Cannot publish without category and session type"));
-  }
-
+  // ✅ Create Subscription
   const newServiceType = await Subscription.create({
     name,
     categoryId,
     sessionType,
-    duration,
     price,
-    location,
-    subscriptionLink,
+    city,country,streetName,
     media: mediaUrl,
     description,
+    date: parsedDate, 
+    startTime,
+    endTime,
     isActive: isActive !== undefined ? isActive : true,
     created_by: req.user?._id,
   });
@@ -45,27 +65,31 @@ const createSubscription = asyncHandler(async (req, res) => {
   return res.status(201).json(new ApiResponse(201, newServiceType, "Service created successfully"));
 });
 
-// Get all ServiceTypes
-const getAllSubscription = asyncHandler(async (req, res) => {
-  const services = await Subscription.find().populate("categoryId sessionType duration");
-  return res.status(200).json(new ApiResponse(200, services, "All services fetched successfully"));
-});
-
-// Get Subscription by ID
-const getSubscriptionById = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const service = await Subscription.findById(id).populate("categoryId sessionType");
-  if (!service) {
-    return res.status(404).json(new ApiError(404, "Service not found"));
-  }
-  return res.status(200).json(new ApiResponse(200, service, "Service fetched successfully"));
-});
-
 // Update Subscription
 const updateSubscription = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, categoryId, sessionType, duration, price, subscriptionLink, description,location, isActive } = req.body;
+  const { name, categoryId, price,sessionType, description, country,city,streetName, isActive, date, startTime, endTime } = req.body;
 
+  // Parse date if it's a JSON string
+  let parsedDate = date;
+  if (typeof date === 'string') {
+    try {
+      parsedDate = JSON.parse(date);
+    } catch (err) {
+      return res.status(400).json(new ApiError(400, "Invalid date format"));
+    }
+  }
+
+  // Validate required fields
+  if (!name || !categoryId ||!sessionType|| !price || !parsedDate|| !country||!city||!streetName|| !startTime || !endTime) {
+    return res.status(400).json(new ApiError(400, "Missing required fields"));
+  }
+
+  if (!Array.isArray(parsedDate) || (parsedDate.length !== 1 && parsedDate.length !== 2)) {
+    return res.status(400).json(new ApiError(400, "Date must be a single date or a range of two dates"));
+  }
+
+  // Fetch existing subscription to get media URL
   const service = await Subscription.findById(id);
   if (!service) {
     return res.status(404).json(new ApiError(404, "Service not found"));
@@ -73,19 +97,17 @@ const updateSubscription = asyncHandler(async (req, res) => {
 
   let mediaUrl = service.media;
   if (req.file || (req.files && req.files.media && req.files.media[0])) {
+    // Delete existing media from Cloudinary
     if (service.media) {
       await deleteFromCloudinary(service.media);
     }
+
     const mediaPath = req.file ? req.file.path : req.files.media[0].path;
     const uploadedMedia = await uploadOnCloudinary(mediaPath);
     if (!uploadedMedia?.url) {
       return res.status(400).json(new ApiError(400, "Error uploading media"));
     }
     mediaUrl = uploadedMedia.url;
-  }
-
-  if (isActive && (!categoryId || !sessionType)) {
-    return res.status(400).json(new ApiError(400, "Cannot publish without category and session type"));
   }
 
   const updatedService = await Subscription.findByIdAndUpdate(
@@ -94,13 +116,14 @@ const updateSubscription = asyncHandler(async (req, res) => {
       name,
       categoryId,
       sessionType,
-      duration,
       price,
-      subscriptionLink,
       media: mediaUrl,
-      location,
+      city,country,streetName,
       description,
       isActive,
+      date: parsedDate,
+      startTime,
+      endTime,
       updated_by: req.user?._id,
     },
     { new: true }
@@ -108,6 +131,25 @@ const updateSubscription = asyncHandler(async (req, res) => {
 
   return res.status(200).json(new ApiResponse(200, updatedService, "Service updated successfully"));
 });
+
+
+// Get all ServiceTypes
+const getAllSubscription = asyncHandler(async (req, res) => {
+  const services = await Subscription.find().populate("categoryId city country sessionType");
+  return res.status(200).json(new ApiResponse(200, services, "All services fetched successfully"));
+});
+
+// Get Subscription by ID
+const getSubscriptionById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const service = await Subscription.findById(id).populate("categoryId");
+  if (!service) {
+    return res.status(404).json(new ApiError(404, "Service not found"));
+  }
+  return res.status(200).json(new ApiResponse(200, service, "Service fetched successfully"));
+});
+
+
 
 // Delete Subscription
 const deleteSubscription = asyncHandler(async (req, res) => {
@@ -133,7 +175,7 @@ const getSubscriptionsByCategoryId = asyncHandler(async (req, res) => {
   }
 
   const subscriptions = await Subscription.find({ categoryId })
-    .populate("categoryId sessionType duration")
+    .populate("categoryId")
     .sort({ createdAt: -1 });
 
   if (!subscriptions.length) {

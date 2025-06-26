@@ -13,7 +13,7 @@ import {
 
 const router = Router();
 
-router.get("/get-subscription-by-category-id/:categoryId", verifyJWT, getSubscriptionsByCategoryId);
+router.post("/get-all-subscription/:categoryId", verifyJWT, getSubscriptionsByCategoryId);
 
 router
   .route("/create-subscription")

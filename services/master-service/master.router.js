@@ -97,12 +97,12 @@ router
 router.route("/delete-session/:id").delete(verifyJWT, adminOnly, deleteSession);
 
 //category masters
-router.route("/create-category").post(verifyJWT, adminOnly, createCategory);
+router.route("/create-category").post(verifyJWT,multer.uploadSingle("image"), adminOnly, createCategory);
 router.route("/get-all-categories").get(verifyJWT, getAllCategory);
 router
   .route("/delete-category/:id")
   .delete(verifyJWT, adminOnly, deleteCategory);
-router.route("/update-category/:id").put(verifyJWT, adminOnly, updateCategory);
+router.route("/update-category/:id").put(verifyJWT,multer.uploadSingle("image"), adminOnly, updateCategory);
 router.route("/get-category-by-id/:id").get(verifyJWT, getSingleCategory);
 
 router.route("/create-role").post(createRole);

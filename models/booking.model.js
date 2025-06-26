@@ -80,35 +80,68 @@ const bookingSchema = new mongoose.Schema(
 );
 
 
-const subscriptionBookingSchema = new Schema({
-  subscription: {
-    type: Schema.Types.ObjectId,
-    ref: "Subscription",
-    required: true,
+const subscriptionBookingSchema = new Schema(
+  {
+    trainer: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    customer: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ["ACTIVE", "CANCELLED", "COMPLETED"],
+      default: "ACTIVE",
+    },
+    date: {
+      type: [Date],
+      required: true,
+    },
+    startTime: {
+      type: String,
+      required: true,
+    },
+    endTime: {
+      type: String,
+      required: true,
+    },
+    
+      country: {
+      type: Schema.Types.ObjectId,
+      ref: "Country",
+      default: null,
+    },
+    city: {
+      type: Schema.Types.ObjectId,
+      ref: "City",
+      default: null,
+    },
+      streetName: {
+        type: String,
+        required: true,
+      },
+     
+    
+    description: {
+      type: String,
+      default: "",
+    },
+    image: {
+      type: String,
+      default: "",
+    },
   },
-  trainer: {
-    type: Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
-  customer: {
-    type: Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
-  timeSlot: {
-    type: Schema.Types.ObjectId,
-    ref: "TimeSlot", // or "Session" if you're using that model
-    required: true,
-  },
-  status: {
-    type: String,
-    enum: ["ACTIVE", "CANCELLED", "COMPLETED"],
-    default: "ACTIVE",
-  },
-}, {
-  timestamps: true,
-});
+  {
+    timestamps: true,
+  }
+);
+
+
+
 
 export const SubscriptionBooking = mongoose.model("SubscriptionBooking",subscriptionBookingSchema);
 export const Booking = mongoose.model("Booking", bookingSchema);
