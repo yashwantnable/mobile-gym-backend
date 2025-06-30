@@ -82,58 +82,69 @@ const bookingSchema = new mongoose.Schema(
 
 const subscriptionBookingSchema = new Schema(
   {
-    trainer: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
+    // trainer: {
+    //   type: Schema.Types.ObjectId,
+    //   ref: "User",
+    //   required: true,
+    // },
     customer: {
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    status: {
-      type: String,
-      enum: ["ACTIVE", "CANCELLED", "COMPLETED"],
-      default: "ACTIVE",
-    },
-    date: {
-      type: [Date],
+    subscription: {
+      type: Schema.Types.ObjectId,
+      ref: "Subscription",
       required: true,
     },
-    startTime: {
-      type: String,
-      required: true,
-    },
-    endTime: {
-      type: String,
-      required: true,
-    },
+    DiscountedPrice: { type: Number, required: true },
+    promoCode: {
+          type: Schema.Types.ObjectId,
+          ref: "PromoCode",
+          default: null,
+        },
+    // status: {
+    //   type: String,
+    //   enum: ["ACTIVE", "CANCELLED", "COMPLETED"],
+    //   default: "ACTIVE",
+    // },
+    // date: {
+    //   type: [Date],
+    //   required: true,
+    // },
+    // startTime: {
+    //   type: String,
+    //   required: true,
+    // },
+    // endTime: {
+    //   type: String,
+    //   required: true,
+    // },
     
-      country: {
-      type: Schema.Types.ObjectId,
-      ref: "Country",
-      default: null,
-    },
-    city: {
-      type: Schema.Types.ObjectId,
-      ref: "City",
-      default: null,
-    },
-      streetName: {
-        type: String,
-        required: true,
-      },
+    //   country: {
+    //   type: Schema.Types.ObjectId,
+    //   ref: "Country",
+    //   default: null,
+    // },
+    // city: {
+    //   type: Schema.Types.ObjectId,
+    //   ref: "City",
+    //   default: null,
+    // },
+    //   streetName: {
+    //     type: String,
+    //     required: true,
+    //   },
      
     
-    description: {
-      type: String,
-      default: "",
-    },
-    image: {
-      type: String,
-      default: "",
-    },
+    // description: {
+    //   type: String,
+    //   default: "",
+    // },
+    // image: {
+    //   type: String,
+    //   default: "",
+    // },
   },
   {
     timestamps: true,

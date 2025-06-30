@@ -8,7 +8,9 @@ import {
     deleteBooking,
     createSubscriptionBooking,
     getCustomerBookings,
-    getAllSubscriptionBookings
+    getAllSubscriptionBookings,
+    // updateSubscriptionBooking,
+    cancelSubscriptionBooking
 } from "./booking.controller.js";
 
 const router = Router();
@@ -23,6 +25,8 @@ router.route("/delete-booking/:bookingId").delete(verifyJWT, deleteBooking);
 
 
 router.post("/subscribe", verifyJWT, createSubscriptionBooking);
+// router.post("/update-subscribe", verifyJWT, updateSubscriptionBooking);
+router.post("/cancel-subscribe", verifyJWT, cancelSubscriptionBooking);
 router.get("/my-subscriptions", verifyJWT, getCustomerBookings);
 router.get("/get-all-subscriptions", verifyJWT, getAllSubscriptionBookings);
 router.get("/subscription/:bookingId", verifyJWT, getBookingById);

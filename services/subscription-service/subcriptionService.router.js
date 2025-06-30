@@ -9,6 +9,7 @@ import {
   updateSubscription,
   getSubscriptionsByCategoryId,
   deleteSubscription,
+  getSubscriptionsByCoordinates,
 } from "./subscriptionService.controller.js";
 
 const router = Router();
@@ -19,13 +20,19 @@ router
   .route("/create-subscription")
   .post(verifyJWT, adminOnly, multer.uploadSingle("media"), createSubscription);
 
+  router.get(
+  "/subscriptions/nearby",
+  getSubscriptionsByCoordinates
+);
+
+
 router
   .route("/update-subscription/:id")
   .put(verifyJWT, adminOnly, multer.uploadSingle("media"), updateSubscription);
 
 router
   .route("/get-subscription-by-id/:id")
-  .get(verifyJWT, adminOnly, getSubscriptionById);
+  .get(verifyJWT, getSubscriptionById);
 router
   .route("/get-all-subscription")
   .post(verifyJWT, getAllSubscription);

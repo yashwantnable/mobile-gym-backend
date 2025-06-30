@@ -505,61 +505,25 @@ const confirmTimeslotBooking = asyncHandler(async (req, res) => {
 const createSubscriptionBooking = asyncHandler(async (req, res) => {
   const {
     subscription,
-    trainer,
-    date,
-    startTime,
-    endTime,
-    country,
-    city,
-    streetName,
-    description,
+    DiscountedPrice
   } = req.body;
-
-  const imageLocalPath = req.file?.path;
 
   console.log("booking subscription:", req.body);
 
   // Validate required fields
   if (
-    !subscription ||
-    !trainer ||
-    !date ||
-    !startTime ||
-    !endTime ||
-    !country||
-    city||
-    !streetName
+    !subscription || !DiscountedPrice
   ) {
     throw new ApiError(400, "Required fields are missing");
   }
 
   const customer = req.user._id; // From verifyJWT
 
-  // Upload image if provided
-  let image = null;
-  if (imageLocalPath) {
-    const uploadedImage = await uploadOnCloudinary(imageLocalPath);
-    if (!uploadedImage?.url) {
-      return res
-        .status(400)
-        .json(new ApiError(400, "Error while uploading image"));
-    }
-    image = uploadedImage.url;
-  }
-
   // Create the booking
   const newBooking = await SubscriptionBooking.create({
     subscription,
-    trainer,
     customer,
-    date, // array
-    startTime,
-    endTime,
-    country,
-    city,
-    streetName,
-    description,
-    image,
+    DiscountedPrice
   });
 
   return res
@@ -567,13 +531,76 @@ const createSubscriptionBooking = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, newBooking, "Subscription booked successfully"));
 });
 
+// const updateSubscriptionBooking = asyncHandler(async (req, res) => {
+//   try {
+//     const { bookingId } = req.params;
+//     const { subscription } = req.body;
+
+//     if (!subscription) {
+//       return res
+//         .status(400)
+//         .json(new ApiError(400, "Subscription is required"));
+//     }
+
+//     const booking = await SubscriptionBooking.findById(bookingId);
+//     if (!booking) {
+//       return res.status(404).json(new ApiError(404, "Booking not found"));
+//     }
+
+//     booking.subscription = subscription;
+//     await booking.save();
+
+//     const updatedBooking = await SubscriptionBooking.findById(bookingId)
+//       .populate("subscription")
+//       .populate("trainer", "first_name email");
+
+//     return res.status(200).json(
+//       new ApiResponse(200, updatedBooking, "Subscription updated successfully")
+//     );
+//   } catch (error) {
+//     console.error("Update Subscription Error:", error);
+//     res
+//       .status(500)
+//       .json(new ApiError(500, "Failed to update subscription", error.message));
+//   }
+// });
+
+const cancelSubscriptionBooking = asyncHandler(async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const booking = await SubscriptionBooking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json(new ApiError(404, "Booking not found"));
+    }
+
+    // Optionally: prevent cancelling if already cancelled
+    if (booking.status === "cancelled") {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Booking is already cancelled"));
+    }
+
+    booking.status = "cancelled";
+    await booking.save();
+
+    return res.status(200).json(
+      new ApiResponse(200, booking, "Booking cancelled successfully")
+    );
+  } catch (error) {
+    console.error("Cancel Booking Error:", error);
+    res.status(500).json(
+      new ApiError(500, "Failed to cancel booking", error.message)
+    );
+  }
+});
 
 // Get all bookings (populate trainer, subscription, timeSlot)
 const getAllSubscriptionBookings = asyncHandler(async (req, res) => {
   const bookings = await SubscriptionBooking.find()
     .populate("subscription")
-    .populate("trainer", "first_name email")
-    .populate("timeSlot");
+    // .populate("trainer", "first_name email")
+    // .populate("timeSlot");
 
   return res.status(200).json(new ApiResponse(200, bookings, "All bookings fetched"));
 });
@@ -582,7 +609,7 @@ const getAllSubscriptionBookings = asyncHandler(async (req, res) => {
 const getCustomerBookings = asyncHandler(async (req, res) => {
   const bookings = await SubscriptionBooking.find({ customer: req.user._id })
     .populate("subscription")
-    .populate("trainer", "first_name email")
+    // .populate("trainer", "first_name email")
     .sort({ createdAt: -1 });
 
   res
@@ -607,6 +634,8 @@ const getBookingById = asyncHandler(async (req, res) => {
 export {
   getAllSubscriptionBookings,
   createSubscriptionBooking,
+  // updateSubscriptionBooking,
+  cancelSubscriptionBooking,
   getCustomerBookings,
   getBookingById,
 

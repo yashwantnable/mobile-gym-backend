@@ -10,30 +10,52 @@ const createSubscription = asyncHandler(async (req, res) => {
     name,
     categoryId,
     price,
+    trainer,
     sessionType,
     description,
-    city,country,streetName,
+    city, country, streetName,
     isActive,
-    date, 
+    date,
     startTime,
-    endTime
+    endTime,
+    location
   } = req.body;
 
   let parsedDate = date;
   if (typeof date === 'string') {
     try {
       parsedDate = JSON.parse(date);
-    } catch (err) {
+    } catch {
       return res.status(400).json(new ApiError(400, "Invalid date format"));
     }
   }
 
-  if (!name || !categoryId ||!sessionType|| !price || !parsedDate || !startTime || !endTime) {
+  // Parse location if string (from FormData)
+  let parsedLocation = location;
+  if (typeof location === 'string') {
+    try {
+      parsedLocation = JSON.parse(location);
+    } catch {
+      return res.status(400).json(new ApiError(400, "Invalid location format"));
+    }
+  }
+
+  // Validate required fields
+  if (!name || !categoryId || !sessionType || !price || !parsedDate || !trainer || !startTime || !endTime) {
     return res.status(400).json(new ApiError(400, "Missing required fields"));
   }
 
   if (!Array.isArray(parsedDate) || (parsedDate.length !== 1 && parsedDate.length !== 2)) {
     return res.status(400).json(new ApiError(400, "Date must be a single date or a range of two dates"));
+  }
+
+  if (
+    !parsedLocation?.type ||
+    parsedLocation.type !== "Point" ||
+    !Array.isArray(parsedLocation.coordinates) ||
+    parsedLocation.coordinates.length !== 2
+  ) {
+    return res.status(400).json(new ApiError(400, "Invalid location coordinates"));
   }
 
   let mediaUrl = null;
@@ -46,16 +68,19 @@ const createSubscription = asyncHandler(async (req, res) => {
     mediaUrl = uploadedMedia.url;
   }
 
-  // ✅ Create Subscription
   const newServiceType = await Subscription.create({
     name,
     categoryId,
     sessionType,
+    trainer,
     price,
-    city,country,streetName,
+    city,
+    country,
+    streetName,
+    location: parsedLocation,
     media: mediaUrl,
     description,
-    date: parsedDate, 
+    date: parsedDate,
     startTime,
     endTime,
     isActive: isActive !== undefined ? isActive : true,
@@ -65,23 +90,36 @@ const createSubscription = asyncHandler(async (req, res) => {
   return res.status(201).json(new ApiResponse(201, newServiceType, "Service created successfully"));
 });
 
+
 // Update Subscription
 const updateSubscription = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, categoryId, price,sessionType, description, country,city,streetName, isActive, date, startTime, endTime } = req.body;
+  const {
+    name, categoryId, trainer, price, sessionType, description,
+    country, city, streetName, isActive,
+    date, startTime, endTime,
+    location
+  } = req.body;
 
-  // Parse date if it's a JSON string
   let parsedDate = date;
   if (typeof date === 'string') {
     try {
       parsedDate = JSON.parse(date);
-    } catch (err) {
+    } catch {
       return res.status(400).json(new ApiError(400, "Invalid date format"));
     }
   }
 
-  // Validate required fields
-  if (!name || !categoryId ||!sessionType|| !price || !parsedDate|| !country||!city||!streetName|| !startTime || !endTime) {
+  let parsedLocation = location;
+  if (typeof location === 'string') {
+    try {
+      parsedLocation = JSON.parse(location);
+    } catch {
+      return res.status(400).json(new ApiError(400, "Invalid location format"));
+    }
+  }
+
+  if (!name || !categoryId || !sessionType || !price || !trainer || !parsedDate || !country || !city || !streetName || !startTime || !endTime) {
     return res.status(400).json(new ApiError(400, "Missing required fields"));
   }
 
@@ -89,7 +127,15 @@ const updateSubscription = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "Date must be a single date or a range of two dates"));
   }
 
-  // Fetch existing subscription to get media URL
+  if (
+    !parsedLocation?.type ||
+    parsedLocation.type !== "Point" ||
+    !Array.isArray(parsedLocation.coordinates) ||
+    parsedLocation.coordinates.length !== 2
+  ) {
+    return res.status(400).json(new ApiError(400, "Invalid location coordinates"));
+  }
+
   const service = await Subscription.findById(id);
   if (!service) {
     return res.status(404).json(new ApiError(404, "Service not found"));
@@ -97,11 +143,7 @@ const updateSubscription = asyncHandler(async (req, res) => {
 
   let mediaUrl = service.media;
   if (req.file || (req.files && req.files.media && req.files.media[0])) {
-    // Delete existing media from Cloudinary
-    if (service.media) {
-      await deleteFromCloudinary(service.media);
-    }
-
+    if (service.media) await deleteFromCloudinary(service.media);
     const mediaPath = req.file ? req.file.path : req.files.media[0].path;
     const uploadedMedia = await uploadOnCloudinary(mediaPath);
     if (!uploadedMedia?.url) {
@@ -116,9 +158,13 @@ const updateSubscription = asyncHandler(async (req, res) => {
       name,
       categoryId,
       sessionType,
+      trainer,
       price,
+      city,
+      country,
+      streetName,
+      location: parsedLocation,
       media: mediaUrl,
-      city,country,streetName,
       description,
       isActive,
       date: parsedDate,
@@ -133,9 +179,10 @@ const updateSubscription = asyncHandler(async (req, res) => {
 });
 
 
+
 // Get all ServiceTypes
 const getAllSubscription = asyncHandler(async (req, res) => {
-  const services = await Subscription.find().populate("categoryId city country sessionType");
+  const services = await Subscription.find().populate("categoryId city country sessionType trainer");
   return res.status(200).json(new ApiResponse(200, services, "All services fetched successfully"));
 });
 
@@ -189,10 +236,46 @@ const getSubscriptionsByCategoryId = asyncHandler(async (req, res) => {
   );
 });
 
+// getSubscriptionsByCoordinates
+const getSubscriptionsByCoordinates = asyncHandler(async (req, res) => {
+  const { latitude, longitude, maxDistance = 5000 } = req.query;
+
+  if (!latitude || !longitude) {
+    return res
+      .status(400)
+      .json(new ApiError(400, "Latitude and longitude are required"));
+  }
+
+  const lat = parseFloat(latitude);
+  const lon = parseFloat(longitude);
+
+  const nearbySubscriptions = await Subscription.find({
+    location: {
+      $near: {
+        $geometry: {
+          type: "Point",
+          coordinates: [lon, lat], // GeoJSON format: [longitude, latitude]
+        },
+        $maxDistance: parseInt(maxDistance), // distance in meters
+      },
+    },
+  }).populate("categoryId city country sessionType trainer");
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      nearbySubscriptions,
+      "Subscriptions near your location"
+    )
+  );
+});
+
+
 
 export {
   getSubscriptionsByCategoryId,
   createSubscription,
+  getSubscriptionsByCoordinates,
   getAllSubscription,
   getSubscriptionById,
   updateSubscription,
