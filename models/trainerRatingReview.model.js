@@ -7,12 +7,12 @@ const trainerRatingReviewSchema = new Schema(
             ref: "User",
             required: true,
         },
-        session: {
-            type: Schema.Types.ObjectId,
-            ref: "SubServiceType",
-            // required: true,
-            default : null
-        },
+        // subscriptionId: {
+        //     type: Schema.Types.ObjectId,
+        //     ref: "Subscription",
+        //     // required: true,
+        //     default : null
+        // },
         rating: {
             type: Number,
             required: true,

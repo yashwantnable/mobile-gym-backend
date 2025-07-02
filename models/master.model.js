@@ -300,13 +300,8 @@ const locationSchema = new Schema(
     },
     city: {
       type: Schema.Types.ObjectId,
-      ref: "Country",
+      ref: "City",
       required: true,
-    },
-    pin: {
-      type: String,
-      required: true,
-      trim: true,
     },
     streetName: {
       type: String,
@@ -314,11 +309,23 @@ const locationSchema = new Schema(
       lowercase: true,
       trim: true,
     },
-    pinAddress: {
+    landmark: {
       type: String,
-      required: true,
       trim: true,
+      default: '',
     },
+   location: {
+  type: {
+    type: String,
+    enum: ["Point"],
+    default: "Point",
+  },
+  coordinates: {
+    type: [Number], // [lng, lat]
+    required: true,
+  },
+}
+,
     created_by: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -332,6 +339,11 @@ const locationSchema = new Schema(
   },
   { timestamps: true, versionKey: false }
 );
+
+
+// Optional: Add a geospatial index
+locationSchema.index({ location: "2dsphere" });
+
 
 
 export const Category = mongoose.model("Category", categorySchema);

@@ -764,78 +764,82 @@ const getSessionsByCategoryId = asyncHandler(async (req, res) => {
 ////////////////////////////////////////////////////// BREED ////////////////////////////////////////////////////////
 // CREATE Location Master
 const createLocationMaster = asyncHandler(async (req, res) => {
-  // console.log("location res:",req.body)
-  const { streetName, country, pin, city, pinAddress, is_active } = req.body;
+  const { streetName, country, city, landmark = '', is_active = true, location } = req.body;
 
-  if (!streetName) {
-    return res
-      .status(400)
-      .json(new ApiError(400, "Missing required field: streetName"));
+  if (!streetName || !Array.isArray(location) || location.length !== 2) {
+    return res.status(400).json(
+      new ApiError(400, "Missing or invalid required fields: streetName and location")
+    );
   }
+
+  const [lat, lng] = location.map(Number);
+  const geoLocation = {
+    type: "Point",
+    coordinates: [lng, lat], // GeoJSON format: [lng, lat]
+  };
 
   const createdLocation = await LocationMaster.create({
     streetName,
     country,
     city,
-    pin,
-    pinAddress,
+    landmark,
     is_active,
+    location: geoLocation,
     created_by: req.user?._id,
   });
 
-  return res
-    .status(201)
-    .json(
-      new ApiResponse(
-        201,
-        createdLocation,
-        "Location Master created successfully"
-      )
-    );
+  return res.status(201).json(
+    new ApiResponse(201, createdLocation, "Location Master created successfully")
+  );
 });
+
+
+
 
 // UPDATE Location Master
 const updateLocationMaster = asyncHandler(async (req, res) => {
-  if (!req.params.id || req.params.id === "undefined") {
-    return res.status(400).json(new ApiError(400, "id not provided"));
+  const { id } = req.params;
+  const { streetName, country, city, landmark, is_active, location } = req.body;
+
+  if (!id || id === "undefined") {
+    return res.status(400).json(new ApiError(400, "Missing required parameter: id"));
   }
 
-  if (Object.keys(req.body).length === 0) {
-    return res
-      .status(400)
-      .json(new ApiError(400, "No data provided to update"));
+  if (!Object.keys(req.body).length) {
+    return res.status(400).json(new ApiError(400, "No data provided to update"));
   }
 
-  const { streetName, country, city, pin, pinAddress, is_active } = req.body;
+  let geoLocation;
+  if (Array.isArray(location) && location.length === 2) {
+    const [lat, lng] = location.map(Number);
+    geoLocation = {
+      type: "Point",
+      coordinates: [lng, lat],
+    };
+  }
 
-  const updatedLocation = await LocationMaster.findByIdAndUpdate(
-    req.params.id,
-    {
-      streetName,
-      country,
-      pinAddress,
-      pin,
-      city,
-      is_active,
-      updated_by: req.user?._id,
-    },
-    { new: true }
-  );
+  const updateData = {
+    ...(streetName && { streetName }),
+    ...(country && { country }),
+    ...(city && { city }),
+    ...(landmark && { landmark }),
+    ...(typeof is_active !== 'undefined' && { is_active }),
+    ...(geoLocation && { location: geoLocation }),
+    updated_by: req.user?._id,
+  };
+
+  const updatedLocation = await LocationMaster.findByIdAndUpdate(id, updateData, { new: true });
 
   if (!updatedLocation) {
     return res.status(404).json(new ApiError(404, "Location Master not found"));
   }
 
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        updatedLocation,
-        "Location Master updated successfully"
-      )
-    );
+  return res.status(200).json(
+    new ApiResponse(200, updatedLocation, "Location Master updated successfully")
+  );
 });
+
+
 
 const getLocationsByCountryAndCity = asyncHandler(async (req, res) => {
   const { country, city } = req.query;
@@ -882,11 +886,20 @@ const getAllLocationMasters = asyncHandler(async (req, res) => {
     filter.country = new mongoose.Types.ObjectId(filter.country);
   }
 
+  if (filter?.city) {
+    filter.city = new mongoose.Types.ObjectId(filter.city);
+  }
+
   let searchCondition = {};
   if (search && search !== "undefined") {
     const regex = new RegExp(search, "i");
     searchCondition = {
-      $or: [{ name: { $regex: regex } }, { "Country.name": { $regex: regex } }],
+      $or: [
+        { streetName: { $regex: regex } },
+        { landmark: { $regex: regex } },
+        { "Country.name": { $regex: regex } },
+        { "City.name": { $regex: regex } },
+      ],
     };
   }
 
@@ -910,40 +923,58 @@ const getAllLocationMasters = asyncHandler(async (req, res) => {
         preserveNullAndEmptyArrays: true,
       },
     },
+    {
+      $lookup: {
+        from: "cities",
+        localField: "city",
+        foreignField: "_id",
+        as: "City",
+      },
+    },
+    {
+      $unwind: {
+        path: "$City",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
     { $match: combinedFilter },
   ];
 
-  const { newOffset, newLimit, totalPages, totalCount, newSortOrder } =
-    await pagination(LocationMaster, page, limit, sortOrder, aggregations);
+  const {
+    newOffset,
+    newLimit,
+    totalPages,
+    totalCount,
+    newSortOrder,
+  } = await pagination(LocationMaster, page, limit, sortOrder, aggregations);
 
   let allLocationMasters = [];
 
   if (totalCount > 0) {
     allLocationMasters = await LocationMaster.aggregate([
       ...aggregations,
-      { $project: { country: 0 } },
+      { $project: { country: 0, city: 0 } }, // Hide original ObjectIds
       { $sort: { _id: newSortOrder } },
       { $skip: newOffset },
       { $limit: newLimit },
     ]).exec();
   }
 
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { allLocationMasters, page, limit, totalPages, totalCount },
-        totalCount
-          ? "Location Master fetched successfully"
-          : "No Location Master found"
-      )
-    );
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { allLocationMasters, page, limit, totalPages, totalCount },
+      totalCount
+        ? "Location Master fetched successfully"
+        : "No Location Master found"
+    )
+  );
 });
+
 
 // GET All Location Masters (no pagination)
 const getAllLocations = asyncHandler(async (req, res) => {
-  const allLocations = await LocationMaster.find().populate("country");
+  const allLocations = await LocationMaster.find().populate("country city");
   return res
     .status(200)
     .json(new ApiResponse(200, allLocations, "Locations fetched successfully"));

@@ -5,8 +5,8 @@ const subscriptionSchema = new Schema(
     subscriptionId: {
       type: Schema.Types.ObjectId,
       ref: "Subscription",
-      required : true,
-      default : null
+      required: true,
+      default: null,
     },
     rating: {
       type: Number,
@@ -14,22 +14,10 @@ const subscriptionSchema = new Schema(
       min: 1,
       max: 5,
     },
-    sessionId : {
-      type: Schema.Types.ObjectId,
-      ref: "Session",
-      default : null,
-    },
-    trainer : {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      default : null
-    },
     review: {
       type: String,
       default: "",
-      // maxlength :  [600, "Review must be 600 characters or fewer"],
     },
-
     created_by: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -46,32 +34,40 @@ const subscriptionSchema = new Schema(
   }
 );
 
-// Average rating updater function
-async function updateSubscriptionAverageRating(RatingReview, subServiceId) {
+// Function to update average rating
+async function updateSubscriptionAverageRating(RatingReview, subscriptionId) {
   const result = await RatingReview.aggregate([
-    { $match: { subscriptionId: sessionId, rating: { $ne: 0 } } },
-    { $group: { _id: "$subscription", averageRating: { $avg: "$rating" } } },
+    { $match: { subscriptionId, rating: { $ne: 0 } } },
+    {
+      $group: {
+        _id: "$subscriptionId",
+        averageRating: { $avg: "$rating" },
+      },
+    },
   ]);
 
   if (result.length > 0) {
     const average_rating = result[0].averageRating;
     await mongoose
-      .model("subscription")
-      .findByIdAndUpdate(subServiceId, { average_rating });
+      .model("Subscription")
+      .findByIdAndUpdate(subscriptionId, { average_rating });
   }
 }
 
-// Hook: After Save
+// Hook after saving a review
 subscriptionSchema.post("save", async function (doc) {
   const RatingReview = this.constructor;
-  await updateSubscriptionAverageRating(RatingReview, doc.subService);
+  await updateSubscriptionAverageRating(RatingReview, doc.subscriptionId);
 });
 
-// Hook: After findOneAndUpdate
+// Hook after updating a review
 subscriptionSchema.post("findOneAndUpdate", async function (doc) {
+  if (!doc) return;
   const RatingReview = this.model;
-  await updateSubscriptionAverageRating(RatingReview, doc.subService);
+  await updateSubscriptionAverageRating(RatingReview, doc.subscriptionId);
 });
 
-
-export const SubscriptionRatingReview = mongoose.model("SubscriptionRatingReview",subscriptionSchema);
+export const SubscriptionRatingReview = mongoose.model(
+  "SubscriptionRatingReview",
+  subscriptionSchema
+);

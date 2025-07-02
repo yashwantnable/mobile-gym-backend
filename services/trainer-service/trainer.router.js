@@ -25,7 +25,7 @@ const router = Router();
 
 router.route("/update-trainer-status/:groomerId").patch(verifyJWT, adminOnly, updateTrainerStatus);
 router.route("/create-trainer").post(verifyJWT, adminOnly, multer.uploadSingle("profile_image"), createTrainer);
-router.route("/get-all-trainers").get(verifyJWT, adminOnly, getAllTrainer);
+router.route("/get-all-trainers").get(verifyJWT, getAllTrainer);
 router.route("/get-trainerBy-id/:id").get(verifyJWT, adminOnly, getTrainerrById);
 router.route("/update-trainer/:id").put(verifyJWT, adminOnly, multer.uploadSingle("profile_image"), updateTrainer);
 router.route("/delete-trainer/:id").delete(verifyJWT, adminOnly, deleteTrainer);

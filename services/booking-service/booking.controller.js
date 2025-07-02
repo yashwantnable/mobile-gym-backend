@@ -503,33 +503,29 @@ const confirmTimeslotBooking = asyncHandler(async (req, res) => {
 //subscription booking
 // Create a new booking
 const createSubscriptionBooking = asyncHandler(async (req, res) => {
-  const {
-    subscription,
-    DiscountedPrice
-  } = req.body;
+  const { subscription } = req.body;
 
-  console.log("booking subscription:", req.body);
+  // console.log("booking subscription:", req.body);
 
-  // Validate required fields
-  if (
-    !subscription || !DiscountedPrice
-  ) {
+  if (!subscription) {
     throw new ApiError(400, "Required fields are missing");
   }
 
-  const customer = req.user._id; // From verifyJWT
+  const customer = req.user._id;
 
-  // Create the booking
   const newBooking = await SubscriptionBooking.create({
     subscription,
     customer,
-    DiscountedPrice
   });
+
+  const populatedBooking = await SubscriptionBooking.findById(newBooking._id)
+    .populate("subscription");
 
   return res
     .status(201)
-    .json(new ApiResponse(201, newBooking, "Subscription booked successfully"));
+    .json(new ApiResponse(201, populatedBooking, "Subscription booked successfully"));
 });
+
 
 // const updateSubscriptionBooking = asyncHandler(async (req, res) => {
 //   try {
@@ -622,7 +618,7 @@ const getBookingById = asyncHandler(async (req, res) => {
   const { bookingId } = req.params;
   const booking = await SubscriptionBooking.findById(bookingId)
     .populate("subscription")
-    .populate("trainer", "first_name email");
+    .populate("first_name email");
 
   if (!booking) {
     return res.status(404).json(new ApiResponse(404, {}, "Booking not found"));
@@ -631,6 +627,33 @@ const getBookingById = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, booking, "Booking details"));
 });
 
+const getSingleSubscriptionByBookingId = asyncHandler(async (req, res) => {
+  const { bookingId } = req.params;
+
+  if (!bookingId) {
+    return res.status(400).json(new ApiError(400, "Booking ID is required"));
+  }
+
+  const booking = await SubscriptionBooking.findById(bookingId)
+    .populate({
+      path: "subscription",
+      populate: {
+        path: "created_by",
+        select: "name email", // only fetch name and email of creator
+      },
+      select: "-trainer -sessionType" // exclude trainer and sessionType fields
+    });
+
+  if (!booking || !booking.subscription) {
+    return res.status(404).json(new ApiResponse(404, {}, "Subscription not found for this booking"));
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, booking.subscription, "Subscription fetched successfully from booking ID"));
+});
+
+
 export {
   getAllSubscriptionBookings,
   createSubscriptionBooking,
@@ -638,7 +661,7 @@ export {
   cancelSubscriptionBooking,
   getCustomerBookings,
   getBookingById,
-
+getSingleSubscriptionByBookingId,
   createManualBooking,
   updateManualBooking,
   getAllBookings,

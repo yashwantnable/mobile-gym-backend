@@ -10,34 +10,38 @@ import {
   getSubscriptionsByCategoryId,
   deleteSubscription,
   getSubscriptionsByCoordinates,
+  getSubscriptionsByDate,
+  getSubscriptionsByTrainerId,
+  getSubscriptionsByUserMiles,
+  getSubscriptionsBySessionTypeId,
+  filterAndSortSubscriptions,
 } from "./subscriptionService.controller.js";
 
 const router = Router();
 
+router.post("/get-subscriptions-filter", filterAndSortSubscriptions);
+
+
 router.post("/get-all-subscription/:categoryId", verifyJWT, getSubscriptionsByCategoryId);
 
-router
-  .route("/create-subscription")
-  .post(verifyJWT, adminOnly, multer.uploadSingle("media"), createSubscription);
+router.get("/get-subscriptions-by-session/:sessionTypeId", verifyJWT, getSubscriptionsBySessionTypeId);
 
-  router.get(
-  "/subscriptions/nearby",
-  getSubscriptionsByCoordinates
-);
+router.post("/get-subscriptions-by-date", verifyJWT, getSubscriptionsByDate);
 
+router.get("/get-subscriptions-by-trainer/:trainerId", getSubscriptionsByTrainerId);
 
-router
-  .route("/update-subscription/:id")
-  .put(verifyJWT, adminOnly, multer.uploadSingle("media"), updateSubscription);
+router.post("/get-subscriptions-by-coordinates", getSubscriptionsByUserMiles);
 
-router
-  .route("/get-subscription-by-id/:id")
-  .get(verifyJWT, getSubscriptionById);
-router
-  .route("/get-all-subscription")
-  .post(verifyJWT, getAllSubscription);
-router
-  .route("/delete-subscription/:id")
-  .delete(verifyJWT, adminOnly, deleteSubscription);
+router.route("/create-subscription").post(verifyJWT, adminOnly, multer.uploadSingle("media"), createSubscription);
+
+router.get("/subscriptions/nearby",getSubscriptionsByCoordinates);
+
+router.route("/update-subscription/:id").put(verifyJWT, adminOnly, multer.uploadSingle("media"), updateSubscription);
+
+router.route("/get-subscription-by-id/:id").get(verifyJWT, getSubscriptionById);
+
+router.route("/get-all-subscription").post(verifyJWT, getAllSubscription);
+
+router.route("/delete-subscription/:id").delete(verifyJWT, adminOnly, deleteSubscription);
 
 export default router;

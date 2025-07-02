@@ -97,12 +97,12 @@ const subscriptionBookingSchema = new Schema(
       ref: "Subscription",
       required: true,
     },
-    DiscountedPrice: { type: Number, required: true },
-    promoCode: {
-          type: Schema.Types.ObjectId,
-          ref: "PromoCode",
-          default: null,
-        },
+    // DiscountedPrice: { type: Number, required: true },
+    // promoCode: {
+    //       type: Schema.Types.ObjectId,
+    //       ref: "PromoCode",
+    //       default: null,
+    //     },
     // status: {
     //   type: String,
     //   enum: ["ACTIVE", "CANCELLED", "COMPLETED"],

@@ -10,7 +10,8 @@ import {
     getCustomerBookings,
     getAllSubscriptionBookings,
     // updateSubscriptionBooking,
-    cancelSubscriptionBooking
+    cancelSubscriptionBooking,
+    getSingleSubscriptionByBookingId
 } from "./booking.controller.js";
 
 const router = Router();
@@ -29,7 +30,7 @@ router.post("/subscribe", verifyJWT, createSubscriptionBooking);
 router.post("/cancel-subscribe", verifyJWT, cancelSubscriptionBooking);
 router.get("/my-subscriptions", verifyJWT, getCustomerBookings);
 router.get("/get-all-subscriptions", verifyJWT, getAllSubscriptionBookings);
-router.get("/subscription/:bookingId", verifyJWT, getBookingById);
+router.get("/get-booking-by-id/:bookingId", verifyJWT, getSingleSubscriptionByBookingId);
 
 
 export default router;

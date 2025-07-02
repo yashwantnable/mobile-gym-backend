@@ -538,43 +538,8 @@ const deleteAddress = asyncHandler(async (req, res) => {
 });
 
 
-// Create SubService Rating and Review
-// const createSubscriptionRatingReview = asyncHandler(async (req, res) => {
-//   const { rating, review, sessionId, subscriptionId,trainer } = req.body;
-
-//   if (!subscriptionId || !rating) {
-//     return res.status(400).json(new ApiError(400, "subscription Id and rating are required"));
-//   }
-
-//   // Check for existing review by user for this subscription
-//   const existingReview = await SubscriptionRatingReview.findOne({
-//   subscriptionId,
-//   sessionId,
-//   created_by: req.user._id,
-// });
-
-
-//   if (existingReview) {
-//     return res.status(400).json(new ApiError(400, "You have already reviewed this subscription"));
-//   }
-
-//   const reviewData = {
-//     subscriptionId,
-//     rating,
-//     review: review || "",
-//     sessionId: sessionId || null,
-//     trainer: trainer || null,
-//     created_by: req.user._id,
-//   };
-
-//   const createdReview = await SubscriptionRatingReview.create(reviewData);
-
-//   return res
-//     .status(201)
-//     .json(new ApiResponse(201, createdReview, "Sub-service review added successfully"));
-// });
 const createSubscriptionRatingReview = asyncHandler(async (req, res) => {
-  const { rating, review, sessionId, subscriptionId, trainer } = req.body;
+  const { rating, review, subscriptionId } = req.body;
 
   if (!subscriptionId || !rating) {
     return res.status(400).json(new ApiError(400, "subscription Id and rating are required"));
@@ -582,7 +547,6 @@ const createSubscriptionRatingReview = asyncHandler(async (req, res) => {
 
   const userId = req.user?._id;
 
-  // ✅ Correctly convert to ObjectId
   const subId = new mongoose.Types.ObjectId(subscriptionId);
   const creatorId = new mongoose.Types.ObjectId(userId);
 
@@ -599,8 +563,6 @@ const createSubscriptionRatingReview = asyncHandler(async (req, res) => {
     subscriptionId: subId,
     rating,
     review: review || "",
-    sessionId: sessionId ? new mongoose.Types.ObjectId(sessionId) : null,
-    trainer: trainer ? new mongoose.Types.ObjectId(trainer) : null,
     created_by: creatorId,
   };
 
@@ -608,10 +570,8 @@ const createSubscriptionRatingReview = asyncHandler(async (req, res) => {
 
   return res
     .status(201)
-    .json(new ApiResponse(201, createdReview, "Sub-service review added successfully"));
+    .json(new ApiResponse(201, createdReview, "Subscription review added successfully"));
 });
-
-
 
 // Update SubService Rating and Review
 const updateSubscriptionRatingReview = asyncHandler(async (req, res) => {
@@ -651,52 +611,17 @@ const updateSubscriptionRatingReview = asyncHandler(async (req, res) => {
   );
 });
 
-// const getAllSubscriptionRatingReviews = asyncHandler(async (req, res) => {
-//   const { subServiceId } = req.params;
-
-//   if (!subServiceId) {
-//     return res.status(400).json(new ApiError(400, "SubService ID is required"));
-//   }
-
-//   const reviews = await SubscriptionRatingReview.find({ subService: subServiceId })
-//     .populate("created_by", "first_name email")
-//     .exec();
-
-//   const totalReviews = reviews.length;
-//   const averageRating =
-//     totalReviews > 0
-//       ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(2)
-//       : "0.00";
-
-//   const ratingDistribution = [1, 2, 3, 4, 5].map((star) => {
-//     const count = reviews.filter((r) => r.rating === star).length;
-//     const percentage = totalReviews > 0 ? ((count / totalReviews) * 100).toFixed(2) : "0.00";
-//     return { rating: star, count, percentage };
-//   });
-
-//   return res.status(200).json(
-//     new ApiResponse(200, {
-//       reviews,
-//       totalReviews,
-//       averageRating,
-//       ratingDistribution,
-//     }, "Sub-service reviews fetched successfully")
-//   );
-// });
-
-/**----------- */
-
 // Get all SubService Rating and Reviews
 const getAllSubscriptionRatingReviews = asyncHandler(async (req, res) => {
   const { subscriptionId } = req.params;
-
+  console.log("subscriptionId:",subscriptionId);
+  
   if (!subscriptionId) {
     return res.status(400).json(new ApiError(400, "Subscription ID is required"));
   }
 
-  const reviews = await SubscriptionRatingReview.find({ subscriptionId: subscriptionId })
+  const reviews = await SubscriptionRatingReview.find({ subscriptionId })
     .populate("created_by", "first_name email")
-    .populate("trainer", "first_name email")
     .exec();
 
   if (!reviews.length) {
@@ -705,7 +630,7 @@ const getAllSubscriptionRatingReviews = asyncHandler(async (req, res) => {
         reviews: [],
         averageRating: "0.00",
         totalReviews: 0,
-      }, "No reviews found for this sub-service")
+      }, "No reviews found for this subscription")
     );
   }
 
@@ -718,12 +643,14 @@ const getAllSubscriptionRatingReviews = asyncHandler(async (req, res) => {
     new ApiResponse(200, { reviews, averageRating, totalReviews }, "Reviews fetched successfully")
   );
 });
+
+
 const getAllSubscriptionsRatingReviews = asyncHandler(async (req, res) => {
  
   const reviews = await SubscriptionRatingReview.find()
     .populate("created_by", "first_name email")
-    .populate("trainer", "first_name email")
-    .populate("sessionId") 
+    // .populate("trainer", "first_name email")
+    // .populate("sessionId") 
     .populate("subscriptionId") 
     .exec();
  
@@ -773,30 +700,29 @@ const getSubscriptionRatingReviewByUser = asyncHandler(async (req, res) => {
 
 // Create Trainer Rating and Review
 const createTrainerRatingReview = asyncHandler(async (req, res) => {
-  const {trainer, rating, review, sessionId } = req.body;
+  const {trainer, rating, review } = req.body;
 
   console.log("reqbody----------------->", req.body);
   
   if (!trainer  || !rating) {
-    return res.status(400).json(new ApiError(400, "Trainer ID, SubService ID, and rating are required"));
+    return res.status(400).json(new ApiError(400, "Trainer ID and rating are required"));
   }
 
   const existingReview = await TrainerRatingReview.findOne({
-    // trainer,
-    // created_by: req.user._id,
-    sessionId
+    trainer,
+    created_by: req.user._id,
   });
 // console.log("existingReview----------------------->",existingReview);
 
   if (existingReview) {
-    return res.status(400).json(new ApiError(400, "You have already reviewed this trainer for this Subscription"));
+    return res.status(400).json(new ApiError(400, "You have already reviewed this trainer"));
   }
 
   const reviewData = {
     trainer,
     rating,
     review: review || "",
-    sessionId: sessionId || null,
+    // sessionId: sessionId || null,
     created_by: req.user._id,
   };
 
@@ -812,7 +738,7 @@ const createTrainerRatingReview = asyncHandler(async (req, res) => {
 // Update Trainer Rating and Review
 const updateTrainerRatingReview = asyncHandler(async (req, res) => {
   const { trainerId } = req.params;
-  const { sessionId, rating, review } = req.body;
+  const { rating, review } = req.body;
 
   if (!review) {
     return res.status(400).json(new ApiError(400, "Review text is required"));
@@ -821,7 +747,7 @@ const updateTrainerRatingReview = asyncHandler(async (req, res) => {
   const existingReview = await TrainerRatingReview.findOne({
     trainer: trainerId,
     // subService,
-    sessionId,
+    // sessionId,
     created_by: req.user._id,
   });
 
@@ -831,7 +757,7 @@ const updateTrainerRatingReview = asyncHandler(async (req, res) => {
 
   existingReview.rating = rating || existingReview.rating;
   existingReview.review = review;
-  existingReview.sessionId = sessionId;
+  // existingReview.sessionId = sessionId;
   existingReview.updated_by = req.user._id;
 
   await existingReview.save();
@@ -847,7 +773,7 @@ const getAllTrainerReviews = asyncHandler(async (req, res) => {
 
   const reviews = await TrainerRatingReview.find({})
     .populate("trainer", "first_name profile_image") 
-    .populate("session", "name") 
+    // .populate("session", "name") 
     .populate("created_by", "name") 
     .populate("updated_by", "name") 
     .sort({ createdAt: -1 }); 
@@ -893,36 +819,22 @@ const getTrainerRatingReviewByUser = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "Trainer ID is required"));
   }
 
-  // aggregate pipeline to fetch reviews for trainer where sessionId exists in Order collection
   const reviews = await TrainerRatingReview.aggregate([
     {
       $match: {
-        trainer: new mongoose.Types.ObjectId(trainerId)
-      }
-    },
-    {
-      $lookup: {
-        from: "orders",
-        localField: "sessionId",
-        foreignField: "_id",
-        as: "order"
-      }
-    },
-    {
-      $match: {
-        "order.0": { $exists: true } // only keep reviews where order array has at least 1 element
-      }
+        trainer: new mongoose.Types.ObjectId(trainerId),
+      },
     },
     {
       $lookup: {
         from: "users",
-        localField: "trainer",
+        localField: "created_by", // fetch reviewer details
         foreignField: "_id",
-        as: "trainerDetails"
-      }
+        as: "user",
+      },
     },
     {
-      $unwind: "$trainerDetails"
+      $unwind: "$user",
     },
     {
       $project: {
@@ -930,23 +842,24 @@ const getTrainerRatingReviewByUser = asyncHandler(async (req, res) => {
         rating: 1,
         review: 1,
         createdAt: 1,
-        "trainerDetails.first_name": 1,
-        "trainerDetails.profile_image": 1,
-        sessionId: 1
-      }
-    }
+        "user.first_name": 1,
+        "user.last_name": 1,
+        "user.profile_image": 1,
+      },
+    },
   ]);
 
   if (!reviews.length) {
     return res
       .status(200)
-      .json(new ApiResponse(200, [], "No valid reviews found for this trainer."));
+      .json(new ApiResponse(200, [], "No reviews found for this trainer."));
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, reviews, "Trainer reviews with valid orders fetched successfully."));
+    .json(new ApiResponse(200, reviews, "Trainer reviews fetched successfully."));
 });
+
 
 const calculateCartTotal = asyncHandler(async (req, res) => {
   const { promoCode } = req.body;
