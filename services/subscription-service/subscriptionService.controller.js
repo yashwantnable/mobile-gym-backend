@@ -741,7 +741,79 @@ const deleteSubscription = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "Service deleted successfully"));
 });
 
+// Search Subscriptions by Name (for dropdown)
+const searchSubscriptions = asyncHandler(async (req, res) => {
+  const { keyword } = req.query;
+
+  if (!keyword) {
+    return res
+      .status(400)
+      .json(new ApiError(400, "Search keyword is required"));
+  }
+
+  const regex = new RegExp(keyword, "i");
+
+  const subscriptions = await Subscription.find({ name: { $regex: regex } })
+    .populate([
+      { path: "categoryId" },
+      { path: "sessionType" },
+      { path: "trainer" },
+      {
+        path: "Address",
+        populate: [
+          { path: "city", select: "name" },
+          { path: "country", select: "name" },
+        ],
+      },
+    ])
+    .lean();
+
+  if (!subscriptions.length) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, [], "No subscriptions found"));
+  }
+
+  const allReviews = await SubscriptionRatingReview.find({
+    subscriptionId: { $in: subscriptions.map((s) => s._id) },
+  }).lean();
+
+  const reviewMap = {};
+  for (const review of allReviews) {
+    const subId = review.subscriptionId?.toString();
+    if (!subId) continue;
+    if (!reviewMap[subId]) reviewMap[subId] = [];
+    reviewMap[subId].push(review);
+  }
+
+  const enriched = subscriptions.map((sub) => {
+    const reviews = reviewMap[sub._id.toString()] || [];
+    const totalReviews = reviews.length;
+    const averageRating = totalReviews
+      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(2)
+      : "0.00";
+
+    return {
+      ...sub,
+      reviews,
+      totalReviews,
+      averageRating,
+    };
+  });
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      enriched,
+      "Subscriptions fetched with full details"
+    )
+  );
+});
+
+
+
 export {
+  searchSubscriptions,
   filterAndSortSubscriptions,
   getSubscriptionsByCategoryId,
   createSubscription,

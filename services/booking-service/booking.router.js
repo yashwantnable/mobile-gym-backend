@@ -29,7 +29,7 @@ router.post("/subscribe", verifyJWT, createSubscriptionBooking);
 // router.post("/update-subscribe", verifyJWT, updateSubscriptionBooking);
 router.post("/cancel-subscribe", verifyJWT, cancelSubscriptionBooking);
 router.get("/my-subscriptions", verifyJWT, getCustomerBookings);
-router.get("/get-all-subscriptions", verifyJWT, getAllSubscriptionBookings);
+router.get("/get-all-subscriptionBooking", verifyJWT, getAllSubscriptionBookings);
 router.get("/get-booking-by-id/:bookingId", verifyJWT, getSingleSubscriptionByBookingId);
 
 

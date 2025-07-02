@@ -15,11 +15,13 @@ import {
   getSubscriptionsByUserMiles,
   getSubscriptionsBySessionTypeId,
   filterAndSortSubscriptions,
+  searchSubscriptions,
 } from "./subscriptionService.controller.js";
 
 const router = Router();
 
 router.post("/get-subscriptions-filter", filterAndSortSubscriptions);
+router.get("/search-subscriptions", searchSubscriptions);
 
 
 router.post("/get-all-subscription/:categoryId", verifyJWT, getSubscriptionsByCategoryId);
