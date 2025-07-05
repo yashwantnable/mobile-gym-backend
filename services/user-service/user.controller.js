@@ -186,6 +186,7 @@ const updateUser = asyncHandler(async (req, res) => {
     experience,
     experienceYear,
     password,
+    birthday
   } = req.body;
 
   const imageLocalPath = req.file?.path;
@@ -223,6 +224,7 @@ const updateUser = asyncHandler(async (req, res) => {
       address,
       age,
       country,
+      birthday,
       city,
       specialization,
       experience,
@@ -684,17 +686,18 @@ const getSubscriptionRatingReviewByUser = asyncHandler(async (req, res) => {
   }
 
   const review = await SubscriptionRatingReview.findOne({
-    subscription: subscriptionId,
-    created_by: req.user._id,
-  })
-  .populate("subscription", "name image")
-  .exec();
+  subscriptionId: subscriptionId, // 👈 This is correct
+  created_by: req.user._id,
+})
+.populate("subscriptionId", "name image") // also fix the populate field if needed
+.exec();
+
 
   if (!review) {
-    return res.status(404).json(new ApiError(404, "No review found for this sub-service by the user"));
+    return res.status(404).json(new ApiError(404, "No review found for this subscription id by the user"));
   }
 
-  return res.status(200).json(new ApiResponse(200, review, "User's sub-service review fetched successfully"));
+  return res.status(200).json(new ApiResponse(200, review, "User's subscription id review fetched successfully"));
 });
 
 

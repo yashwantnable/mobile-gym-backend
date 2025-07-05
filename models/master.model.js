@@ -271,21 +271,23 @@ const currencySchema = new Schema(
 // categorySchema 
 const categorySchema = new Schema(
   {
-    
     cName: {
       type: String,
-      lowecase: true,
+      lowercase: true,
       required: true,
     },
     image: {
-        type: String,
-      },
+      type: String,
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
     // cLevel: {
     //   type: String,
-    //   lowecase: true,
+    //   lowercase: true,
     //   required: true,
     // },
-   
   },
   { timestamps: true, versionKey: false }
 );

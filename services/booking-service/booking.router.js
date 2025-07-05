@@ -11,7 +11,9 @@ import {
     getAllSubscriptionBookings,
     // updateSubscriptionBooking,
     cancelSubscriptionBooking,
-    getSingleSubscriptionByBookingId
+    getSingleSubscriptionByBookingId,
+    getSubscriptionsByUserId,
+    getExpiredBookingsByCustomer
 } from "./booking.controller.js";
 
 const router = Router();
@@ -31,6 +33,7 @@ router.post("/cancel-subscribe", verifyJWT, cancelSubscriptionBooking);
 router.get("/my-subscriptions", verifyJWT, getCustomerBookings);
 router.get("/get-all-subscriptionBooking", verifyJWT, getAllSubscriptionBookings);
 router.get("/get-booking-by-id/:bookingId", verifyJWT, getSingleSubscriptionByBookingId);
-
+router.get("/subscriptions-by-user-id/:userId", getSubscriptionsByUserId);
+router.get("/get-expired-subscriptions",verifyJWT, getExpiredBookingsByCustomer);
 
 export default router;

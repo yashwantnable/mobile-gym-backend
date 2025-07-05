@@ -87,9 +87,9 @@ router.route("/delete-location-master-by-id/:id").delete(verifyJWT, adminOnly, d
 router
   .route("/create-session")
   .post(verifyJWT, adminOnly, multer.uploadSingle("image"), createSession);
-router.route("/get-all-sessions").get(verifyJWT, getAllSessions);
-router.route("/get-session-by-id/:id").get(verifyJWT, getSessionById);
-router.get("/get-session-by-category-id/:categoryId", verifyJWT, getSessionsByCategoryId);
+router.route("/get-all-sessions").get(getAllSessions);
+router.route("/get-session-by-id/:id").get( getSessionById);
+router.get("/get-session-by-category-id/:categoryId",  getSessionsByCategoryId);
 
 router
   .route("/update-session/:id")
@@ -98,7 +98,7 @@ router.route("/delete-session/:id").delete(verifyJWT, adminOnly, deleteSession);
 
 //category masters
 router.route("/create-category").post(verifyJWT,multer.uploadSingle("image"), adminOnly, createCategory);
-router.route("/get-all-categories").get(verifyJWT, getAllCategory);
+router.route("/get-all-categories").get(getAllCategory);
 router
   .route("/delete-category/:id")
   .delete(verifyJWT, adminOnly, deleteCategory);

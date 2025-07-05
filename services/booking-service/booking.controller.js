@@ -10,6 +10,7 @@ import {
   sendBookingConfirmationEmail,
 } from "../../utils/email.helper.js";
 import NotificationService from "../../messaging_feature/services/NotificationService.js";
+import { Subscription } from "../../models/subscription.model.js";
 
 //create manual booking
 const createManualBooking = asyncHandler(async (req, res) => {
@@ -505,14 +506,44 @@ const confirmTimeslotBooking = asyncHandler(async (req, res) => {
 const createSubscriptionBooking = asyncHandler(async (req, res) => {
   const { subscription } = req.body;
 
-  // console.log("booking subscription:", req.body);
-
   if (!subscription) {
     throw new ApiError(400, "Required fields are missing");
   }
 
   const customer = req.user._id;
 
+  // Fetch the subscription to check expiry
+  const foundSubscription = await Subscription.findById(subscription);
+  if (!foundSubscription) {
+    throw new ApiError(404, "Subscription not found");
+  }
+
+  // Check if expire array exists and has a second date
+  if (
+    !Array.isArray(foundSubscription.date) ||
+    foundSubscription.date.length < 2
+  ) {
+    throw new ApiError(400, "Invalid subscription date data");
+  }
+
+  const expiryDate = new Date(foundSubscription.date[1]);
+  const today = new Date();
+
+  if (expiryDate < today) {
+    throw new ApiError(400, "This subscription has already expired");
+  }
+
+  // ❌ Check if this customer has already booked this subscription
+  const existingBooking = await SubscriptionBooking.findOne({
+    customer,
+    subscription,
+  });
+
+  if (existingBooking) {
+    throw new ApiError(400, "You have already booked this subscription");
+  }
+
+  // ✅ Create new booking
   const newBooking = await SubscriptionBooking.create({
     subscription,
     customer,
@@ -594,9 +625,23 @@ const cancelSubscriptionBooking = asyncHandler(async (req, res) => {
 // Get all bookings (populate trainer, subscription, timeSlot)
 const getAllSubscriptionBookings = asyncHandler(async (req, res) => {
   const bookings = await SubscriptionBooking.find()
-    .populate("subscription")
-    // .populate("trainer", "first_name email")
-    // .populate("timeSlot");
+     .populate({
+      path: "subscription",
+      populate: [
+        { path: "categoryId", select: "cName" },
+        { path: "sessionType", select: "sessionName" },
+        { path: "trainer", select: "first_name last_name email" },
+        {
+          path: "Address",
+          select: "streetName landmark country city",
+          populate: [
+            { path: "country", select: "name" },
+            { path: "city", select: "name" }
+          ]
+        }
+      ]
+    })
+    .sort({ createdAt: -1 });
 
   return res.status(200).json(new ApiResponse(200, bookings, "All bookings fetched"));
 });
@@ -604,14 +649,29 @@ const getAllSubscriptionBookings = asyncHandler(async (req, res) => {
 // Get All Bookings of Logged In Customer
 const getCustomerBookings = asyncHandler(async (req, res) => {
   const bookings = await SubscriptionBooking.find({ customer: req.user._id })
-    .populate("subscription")
-    // .populate("trainer", "first_name email")
+    .populate({
+      path: "subscription",
+      populate: [
+        { path: "categoryId", select: "cName" },
+        { path: "sessionType", select: "sessionName" },
+        { path: "trainer", select: "first_name last_name email" },
+        {
+          path: "Address",
+          select: "streetName landmark country city",
+          populate: [
+            { path: "country", select: "name" },
+            { path: "city", select: "name" }
+          ]
+        }
+      ]
+    })
     .sort({ createdAt: -1 });
 
   res
     .status(200)
     .json(new ApiResponse(200, bookings, "Customer bookings fetched"));
 });
+
 
 // Get Booking by ID
 const getBookingById = asyncHandler(async (req, res) => {
@@ -635,14 +695,23 @@ const getSingleSubscriptionByBookingId = asyncHandler(async (req, res) => {
   }
 
   const booking = await SubscriptionBooking.findById(bookingId)
-    .populate({
+   .populate({
       path: "subscription",
-      populate: {
-        path: "created_by",
-        select: "name email", // only fetch name and email of creator
-      },
-      select: "-trainer -sessionType" // exclude trainer and sessionType fields
-    });
+      populate: [
+        { path: "categoryId", select: "cName" },
+        { path: "sessionType", select: "sessionName" },
+        { path: "trainer", select: "first_name last_name email" },
+        {
+          path: "Address",
+          select: "streetName landmark country city",
+          populate: [
+            { path: "country", select: "name" },
+            { path: "city", select: "name" }
+          ]
+        }
+      ]
+    })
+    .sort({ createdAt: -1 });
 
   if (!booking || !booking.subscription) {
     return res.status(404).json(new ApiResponse(404, {}, "Subscription not found for this booking"));
@@ -653,8 +722,80 @@ const getSingleSubscriptionByBookingId = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, booking.subscription, "Subscription fetched successfully from booking ID"));
 });
 
+// Get All Subscriptions by Customer/User ID
+const getSubscriptionsByUserId = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  const bookings = await SubscriptionBooking.find({ customer: userId })
+    .populate({
+      path: "subscription",
+      populate: [
+        { path: "categoryId", select: "cName" },
+        { path: "sessionType", select: "sessionName" },
+        { path: "trainer", select: "first_name last_name email" },
+        {
+          path: "Address",
+          select: "streetName landmark country city",
+          populate: [
+            { path: "country", select: "name" },
+            { path: "city", select: "name" }
+          ]
+        }
+      ]
+    })
+    .sort({ createdAt: -1 });
+
+  return res.status(200).json(
+    new ApiResponse(200, bookings, "Subscriptions by user fetched")
+  );
+});
+
+const getExpiredBookingsByCustomer = asyncHandler(async (req, res) => {
+  const customerId = req.user._id;
+  const today = new Date();
+
+  // Step 1: Get all bookings with full subscription data
+  const bookings = await SubscriptionBooking.find({ customer: customerId })
+    .populate({
+      path: "subscription",
+      populate: [
+        { path: "categoryId", select: "cName" },
+        { path: "sessionType", select: "sessionName" },
+        { path: "trainer", select: "first_name last_name email" },
+        {
+          path: "Address",
+          select: "streetName landmark country city",
+          populate: [
+            { path: "country", select: "name" },
+            { path: "city", select: "name" }
+          ]
+        }
+      ]
+    })
+    .sort({ createdAt: -1 });
+
+  // Step 2: Filter out expired ones (where subscription.date[1] is before today)
+  const expiredBookings = bookings.filter(booking => {
+    const dateArray = booking.subscription?.date;
+    if (Array.isArray(dateArray) && dateArray.length >= 2) {
+      const endDate = new Date(dateArray[1]);
+      return endDate < today;
+    }
+    return false;
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, expiredBookings, "Expired subscriptions fetched successfully")
+  );
+});
+
+
+
+
 
 export {
+  getExpiredBookingsByCustomer,
+  getSubscriptionsByUserId,
   getAllSubscriptionBookings,
   createSubscriptionBooking,
   // updateSubscriptionBooking,

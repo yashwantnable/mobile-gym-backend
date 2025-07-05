@@ -16,6 +16,7 @@ import orderRouter from "../services/order-service/order.router.js"
 import paymentRouter from "../services/payment-service/payment.router.js"
 import bookingrouter from "../services/booking-service/booking.router.js"
 import subscriptionRouter from "../services/subscription-service/subcriptionService.router.js"
+import packageRouter from "../services/package-service/package.router.js"
 
 
 
@@ -38,5 +39,6 @@ router.use("/order", orderRouter)
 router.use("/payment", paymentRouter)
 router.use("/booking", bookingrouter)
 router.use("/subscription", subscriptionRouter)
+router.use("/package", packageRouter)
 
 export default router;

@@ -16,19 +16,22 @@ import {
   getSubscriptionsBySessionTypeId,
   filterAndSortSubscriptions,
   searchSubscriptions,
+  getSubscriptionsByLocationId,
+  
 } from "./subscriptionService.controller.js";
 
 const router = Router();
 
+router.get("/get-subscriptions-by-loc-id/:locationId", getSubscriptionsByLocationId);
 router.post("/get-subscriptions-filter", filterAndSortSubscriptions);
 router.get("/search-subscriptions", searchSubscriptions);
 
 
-router.post("/get-all-subscription/:categoryId", verifyJWT, getSubscriptionsByCategoryId);
+router.post("/get-all-subscription/:categoryId",  getSubscriptionsByCategoryId);
 
-router.get("/get-subscriptions-by-session/:sessionTypeId", verifyJWT, getSubscriptionsBySessionTypeId);
+router.get("/get-subscriptions-by-session/:sessionTypeId",  getSubscriptionsBySessionTypeId);
 
-router.post("/get-subscriptions-by-date", verifyJWT, getSubscriptionsByDate);
+router.post("/get-subscriptions-by-date",  getSubscriptionsByDate);
 
 router.get("/get-subscriptions-by-trainer/:trainerId", getSubscriptionsByTrainerId);
 
@@ -36,13 +39,13 @@ router.post("/get-subscriptions-by-coordinates", getSubscriptionsByUserMiles);
 
 router.route("/create-subscription").post(verifyJWT, adminOnly, multer.uploadSingle("media"), createSubscription);
 
-router.get("/subscriptions/nearby",getSubscriptionsByCoordinates);
+router.get("/subscriptions/nearby",verifyJWT,getSubscriptionsByCoordinates);
 
 router.route("/update-subscription/:id").put(verifyJWT, adminOnly, multer.uploadSingle("media"), updateSubscription);
 
-router.route("/get-subscription-by-id/:id").get(verifyJWT, getSubscriptionById);
+router.route("/get-subscription-by-id/:id").get(getSubscriptionById);
 
-router.route("/get-all-subscription").post(verifyJWT, getAllSubscription);
+router.route("/get-all-subscription").post(getAllSubscription);
 
 router.route("/delete-subscription/:id").delete(verifyJWT, adminOnly, deleteSubscription);
 

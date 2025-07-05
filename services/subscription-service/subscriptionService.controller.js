@@ -299,7 +299,27 @@ const updateSubscription = asyncHandler(async (req, res) => {
 // });
 const getAllSubscription = asyncHandler(async (req, res) => {
   try {
-    const subscriptions = await Subscription.find()
+    const { isExpired } = req.query;
+
+    const now = new Date();
+
+    let filter = {};
+
+    if (isExpired === "true") {
+      filter = {
+        $expr: {
+          $lt: [{ $arrayElemAt: ["$date", 1] }, now], // Expired: endDate < now
+        },
+      };
+    } else if (isExpired === "false") {
+      filter = {
+        $expr: {
+          $gte: [{ $arrayElemAt: ["$date", 1] }, now], // Active: endDate >= now
+        },
+      };
+    }
+
+    const subscriptions = await Subscription.find(filter)
       .populate([
         { path: "categoryId" },
         { path: "sessionType" },
@@ -349,15 +369,14 @@ const getAllSubscription = asyncHandler(async (req, res) => {
       };
     });
 
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          enrichedSubscriptions,
-          "All services fetched successfully with reviews and ratings"
-        )
-      );
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        enrichedSubscriptions,
+        `All ${isExpired === "true" ? "expired" : isExpired === "false" ? "active" : ""
+        } subscriptions fetched successfully with reviews and ratings`
+      )
+    );
   } catch (error) {
     console.error("Error fetching subscriptions:", error);
     return res
@@ -365,6 +384,8 @@ const getAllSubscription = asyncHandler(async (req, res) => {
       .json(new ApiError(500, "Failed to fetch subscriptions"));
   }
 });
+
+
 
 
 // Get Subscription by ID
@@ -810,9 +831,50 @@ const searchSubscriptions = asyncHandler(async (req, res) => {
   );
 });
 
+const getSubscriptionsByLocationId = asyncHandler(async (req, res) => {
+  const { locationId } = req.params;
+
+  if (!locationId) {
+    return res.status(400).json(new ApiError(400, "Location ID is required"));
+  }
+
+  // Find subscriptions where Address._id === locationId
+  const subscriptions = await Subscription.find({ Address: locationId })
+    .populate([
+      { path: "categoryId" },
+      { path: "sessionType" },
+      { path: "trainer" },
+      {
+        path: "Address",
+        populate: [
+          { path: "city", select: "name" },
+          { path: "country", select: "name" },
+        ],
+      },
+    ])
+    .sort({ createdAt: -1 })
+    .lean();
+
+  if (!subscriptions.length) {
+    return res.status(200).json(
+      new ApiResponse(200, [], "No subscriptions found for this location")
+    );
+  }
+
+  const enriched = await enrichSubscriptionsWithReviews(subscriptions);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      enriched,
+      "Subscriptions fetched by Location ID"
+    )
+  );
+});
 
 
 export {
+  getSubscriptionsByLocationId,
   searchSubscriptions,
   filterAndSortSubscriptions,
   getSubscriptionsByCategoryId,

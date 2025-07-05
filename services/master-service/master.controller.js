@@ -129,10 +129,10 @@ const deleteTenure = asyncHandler(async (req, res) => {
 const createCategory = asyncHandler(async (req, res) => {
   console.log("req.body", req.body);
 
-  const { cName } = req.body;
+  const { cName, description } = req.body;
   const imageLocalPath = req.file?.path;
 
-  const requiredFields = { cName };
+  const requiredFields = { cName,description };
   const missingFields = Object.keys(requiredFields).filter(
     (field) => !requiredFields[field] || requiredFields[field] === "undefined"
   );
@@ -166,7 +166,7 @@ const createCategory = asyncHandler(async (req, res) => {
 
   const createdCategory = await Category.create({
     cName,
-    // cLevel,
+    description,
     image,
   });
 
@@ -218,7 +218,7 @@ const updateCategory = asyncHandler(async (req, res) => {
       .json(new ApiError(400, "No data provided to update"));
   }
 
-  const { cName } = req.body;
+  const { cName,description } = req.body;
   const imageLocalPath = req.file?.path;
 
   let image = null;
@@ -237,7 +237,7 @@ const updateCategory = asyncHandler(async (req, res) => {
   };
 
   if (cName) updateFields.cName = cName;
-  // if (cLevel) updateFields.cLevel = cLevel;
+  if (description) updateFields.description = description;
   if (image) updateFields.image = image;
 
   const updatedCategory = await Category.findByIdAndUpdate(

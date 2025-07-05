@@ -2,7 +2,6 @@ import mongoose, { Schema } from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
-
 const userSchema = new Schema(
   {
     // uid: {
@@ -37,6 +36,10 @@ const userSchema = new Schema(
     },
     address: {
       type: String,
+      default: null,
+    },
+    birthday: {
+      type: Date,
       default: null,
     },
     gender: {
@@ -78,7 +81,7 @@ const userSchema = new Schema(
     },
     password: {
       type: String,
-      default : null
+      default: null,
       // required: function () {
       //   return !(this.uid && this.uid !== "");
       // },
@@ -89,33 +92,27 @@ const userSchema = new Schema(
     },
     status: {
       type: String,
-      enum: [
-        "Pending",
-        "Approved",
-        "Unapproved",
-        "Blocked",
-        "Rejected",
-      ],
+      enum: ["Pending", "Approved", "Unapproved", "Blocked", "Rejected"],
       default: "Pending",
     },
-    userStatus : {
-      type : String,
-      enum : ["BUSY", "AVAILABLE", "NOT AVAILABLE"],
-      default : "AVAILABLE"
+    userStatus: {
+      type: String,
+      enum: ["BUSY", "AVAILABLE", "NOT AVAILABLE"],
+      default: "AVAILABLE",
     },
-    specialization :{
-      type : String,
-      maxlength : 100,
-      default : null
+    specialization: {
+      type: String,
+      maxlength: 100,
+      default: null,
     },
-    experience : {
-      type : String,
-      enum : ["EXPERIENCE","FRESHER"],
-      default : null
+    experience: {
+      type: String,
+      enum: ["EXPERIENCE", "FRESHER"],
+      default: null,
     },
-    experienceYear : {
-      type : Number,
-      default : 0
+    experienceYear: {
+      type: Number,
+      default: 0,
     },
     // location: {
     //   type: {
@@ -129,12 +126,11 @@ const userSchema = new Schema(
   },
   {
     timestamps: true,
-    versionKey: false
+    versionKey: false,
   }
 );
 
 userSchema.index({ location: "2dsphere" });
-
 
 // userSchema.pre("save", async function (next) {
 //   if (!this.isModified("password")) return next();
@@ -155,7 +151,6 @@ userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
-
 // genrate Access token
 userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
@@ -173,7 +168,6 @@ userSchema.methods.generateAccessToken = function () {
   );
 };
 
-
 //generate Refresh token
 userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
@@ -186,7 +180,6 @@ userSchema.methods.generateRefreshToken = function () {
     }
   );
 };
-
 
 //FCM schema
 const FCMDeviceSchema = new Schema(
@@ -212,113 +205,116 @@ const FCMDeviceSchema = new Schema(
   },
   {
     timestamps: true,
-    versionKey: false
+    versionKey: false,
   }
 );
 
-const userAddressSchema = new Schema({
-  name: {
+const userAddressSchema = new Schema(
+  {
+    name: {
       type: String,
       maxlength: 250,
       required: true,
-  },
-  phone_number: {
+    },
+    phone_number: {
       type: String,
       maxlength: 15,
       required: true,
-  },
-  country: {
-      type: Schema.Types.ObjectId,
-      ref: 'Country',
-      default: null,
-  },
-  city: {
-      type: Schema.Types.ObjectId,
-      ref: 'City',
-      default: null,
-  },
-  flat_no: {
-      type: String,
-      maxlength: 250
-  },
-  street: {
-      type: String,
-      maxlength: 250
-  },
-  landmark: {
-      type: String,
-      maxlength: 250
-  },
-  pin_code: {
-    type: Number,
-    required: true
-  },
-
-  make_default_address : {
-    type : Boolean,
-    default : false
-  },
-  // coordinates: {
-  //   latitude: {
-  //     type: Number,
-  //     min: -90,
-  //     max: 90,
-  //     default : 0,
-  //   },
-  //   longitude: {
-  //     type: Number,
-  //     min: -180,
-  //     max: 180,
-  //     default: 0,
-  //   }
-  // },
-   coordinates: {
-    type: {
-      type: String,
-      enum: ["Point"],
-      default: "Point",
-      required: true
     },
+    country: {
+      type: Schema.Types.ObjectId,
+      ref: "Country",
+      default: null,
+    },
+    city: {
+      type: Schema.Types.ObjectId,
+      ref: "City",
+      default: null,
+    },
+    flat_no: {
+      type: String,
+      maxlength: 250,
+    },
+    street: {
+      type: String,
+      maxlength: 250,
+    },
+    landmark: {
+      type: String,
+      maxlength: 250,
+    },
+    pin_code: {
+      type: Number,
+      required: true,
+    },
+
+    make_default_address: {
+      type: Boolean,
+      default: false,
+    },
+    // coordinates: {
+    //   latitude: {
+    //     type: Number,
+    //     min: -90,
+    //     max: 90,
+    //     default : 0,
+    //   },
+    //   longitude: {
+    //     type: Number,
+    //     min: -180,
+    //     max: 180,
+    //     default: 0,
+    //   }
+    // },
     coordinates: {
-      type: [Number], // [longitude, latitude]
-      required: true
-    }
-  },
-  order_id: {
-    type: Schema.Types.ObjectId,
-    ref: 'Order',
-    default: null,
-  },  
-  created_by: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+        required: true,
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        required: true,
+      },
+    },
+    order_id: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
-      default: null
-  },
-  updated_by: {
+      ref: "Order",
+      default: null,
+    },
+    created_by: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
-      default: null
+      ref: "User",
+      default: null,
+    },
+    updated_by: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+  },
+  {
+    timestamps: true,
   }
-}, {
-  timestamps: true
-});
+);
 
 userAddressSchema.index({ coordinates: "2dsphere" });
-userAddressSchema.pre('save', async function(next) {
+userAddressSchema.pre("save", async function (next) {
   const address = this;
   if (address.make_default_address) {
     await address.constructor.updateMany(
-      { created_by: address.created_by, _id: { $ne: address._id } }, 
+      { created_by: address.created_by, _id: { $ne: address._id } },
       { make_default_address: false }
     );
   }
   next();
 });
 
-userAddressSchema.post('findOneAndUpdate', async function (doc) {
+userAddressSchema.post("findOneAndUpdate", async function (doc) {
   if (doc && doc.make_default_address) {
     await doc.constructor.updateMany(
-      { created_by: doc.created_by, _id: { $ne: doc._id } }, 
+      { created_by: doc.created_by, _id: { $ne: doc._id } },
       { make_default_address: false }
     );
   }
@@ -326,4 +322,4 @@ userAddressSchema.post('findOneAndUpdate', async function (doc) {
 
 export const User = mongoose.model("User", userSchema);
 export const FCMDevice = mongoose.model("FCMDevice", FCMDeviceSchema);
-export const Address = mongoose.model('Address', userAddressSchema);
+export const Address = mongoose.model("Address", userAddressSchema);
