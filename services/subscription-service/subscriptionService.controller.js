@@ -43,7 +43,7 @@ const enrichSubscriptionsWithReviews = async (subscriptions) => {
 
 // Create Subscription
 const createSubscription = asyncHandler(async (req, res) => {
-  const {
+  let {
     name,
     categoryId,
     price,
@@ -54,24 +54,30 @@ const createSubscription = asyncHandler(async (req, res) => {
     date,
     startTime,
     endTime,
-    Address, // now expected to be an ObjectId
+    Address,
+    isSingleClass
   } = req.body;
 
-  // Parse and validate date
+  // Convert "true"/"false" string to boolean
+  isSingleClass = isSingleClass === 'true' || isSingleClass === true;
+  isActive = isActive === 'true' || isActive === true;
+
+  // Parse date (JSON string to array)
   let parsedDate = date;
-  if (typeof date === "string") {
+  if (typeof parsedDate === "string") {
     try {
-      parsedDate = JSON.parse(date);
+      parsedDate = JSON.parse(parsedDate);
     } catch {
       return res.status(400).json(new ApiError(400, "Invalid date format"));
     }
   }
 
+  // Validate required fields
   if (
     !name ||
     !categoryId ||
     !sessionType ||
-    !price ||
+    price === undefined ||
     !parsedDate ||
     !trainer ||
     !startTime ||
@@ -81,74 +87,84 @@ const createSubscription = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "Missing required fields"));
   }
 
-  // Validate date format
-  if (
-    !Array.isArray(parsedDate) ||
-    (parsedDate.length !== 1 && parsedDate.length !== 2)
-  ) {
-    return res
-      .status(400)
-      .json(
-        new ApiError(400, "Date must be a single date or a range of two dates")
-      );
+  if (typeof isSingleClass !== "boolean") {
+    return res.status(400).json(new ApiError(400, "Invalid isSingleClass flag"));
   }
 
-  // Validate Address as ObjectId
   if (!mongoose.Types.ObjectId.isValid(Address)) {
     return res.status(400).json(new ApiError(400, "Invalid Address ID"));
   }
 
-  // Handle media upload (if any)
+  if (!Array.isArray(parsedDate)) {
+    return res.status(400).json(new ApiError(400, "Date must be an array"));
+  }
+
+  if (isSingleClass && parsedDate.length !== 1) {
+    return res.status(400).json(new ApiError(400, "Single class must have exactly one date"));
+  }
+
+  if (!isSingleClass && parsedDate.length !== 2) {
+    return res.status(400).json(new ApiError(400, "Class duration must have exactly two dates"));
+  }
+
+  // Handle optional media upload
   let mediaUrl = null;
-  if (req.file || (req.files && req.files.media && req.files.media[0])) {
-    const mediaPath = req.file ? req.file.path : req.files.media[0].path;
-    const uploadedMedia = await uploadOnCloudinary(mediaPath);
+  const fileToProcess = req.file || (req.files?.media?.[0]);
+
+  if (fileToProcess) {
+    const uploadedMedia = await uploadOnCloudinary(fileToProcess.path);
     if (!uploadedMedia?.url) {
       return res.status(400).json(new ApiError(400, "Error uploading media"));
     }
     mediaUrl = uploadedMedia.url;
   }
 
-  // Create the subscription
-  const newServiceType = await Subscription.create({
+  const newSubscription = await Subscription.create({
     name,
     categoryId,
     sessionType,
     trainer,
     price,
-    Address, // just the ObjectId
+    Address,
     media: mediaUrl,
     description,
     date: parsedDate,
     startTime,
     endTime,
-    isActive: isActive !== undefined ? isActive : true,
+    isSingleClass,
+    isActive,
     created_by: req.user?._id,
   });
 
   return res
     .status(201)
-    .json(new ApiResponse(201, newServiceType, "Service created successfully"));
+    .json(new ApiResponse(201, newSubscription, "Service created successfully"));
 });
+
 
 // Update Subscription
 const updateSubscription = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const {
+
+  let {
     name,
     categoryId,
-    trainer,
     price,
+    trainer,
     sessionType,
     description,
     isActive,
     date,
     startTime,
     endTime,
-    Address, // now expected to be just an ObjectId
+    Address,
+    isSingleClass,
   } = req.body;
 
-  // Parse and validate date
+  // Parse boolean string
+  const parsedIsSingleClass = isSingleClass === "true" || isSingleClass === true;
+
+  // Parse date array string
   let parsedDate = date;
   if (typeof parsedDate === "string") {
     try {
@@ -164,52 +180,60 @@ const updateSubscription = asyncHandler(async (req, res) => {
     !categoryId ||
     !sessionType ||
     !price ||
-    !trainer ||
     !parsedDate ||
+    !trainer ||
     !startTime ||
     !endTime ||
-    !Address
+    !Address ||
+    typeof parsedIsSingleClass !== "boolean"
   ) {
     return res.status(400).json(new ApiError(400, "Missing required fields"));
   }
 
-  // Validate date format
-  if (
-    !Array.isArray(parsedDate) ||
-    (parsedDate.length !== 1 && parsedDate.length !== 2)
-  ) {
-    return res
-      .status(400)
-      .json(
-        new ApiError(400, "Date must be a single date or a range of two dates")
-      );
-  }
-
-  // Validate Address ID
   if (!mongoose.Types.ObjectId.isValid(Address)) {
     return res.status(400).json(new ApiError(400, "Invalid Address ID"));
   }
 
-  // Check if service exists
-  const service = await Subscription.findById(id);
-  if (!service) {
+  if (!Array.isArray(parsedDate)) {
+    return res.status(400).json(new ApiError(400, "Date must be an array"));
+  }
+
+  if (parsedIsSingleClass && parsedDate.length !== 1) {
+    return res
+      .status(400)
+      .json(new ApiError(400, "Single class must have exactly one date"));
+  }
+
+  if (!parsedIsSingleClass && parsedDate.length !== 2) {
+    return res
+      .status(400)
+      .json(new ApiError(400, "Class duration must have exactly two dates"));
+  }
+
+  // Find existing subscription
+  const existing = await Subscription.findById(id);
+  if (!existing) {
     return res.status(404).json(new ApiError(404, "Service not found"));
   }
 
   // Handle media update
-  let mediaUrl = service.media;
-  if (req.file || (req.files && req.files.media && req.files.media[0])) {
-    if (service.media) await deleteFromCloudinary(service.media);
-    const mediaPath = req.file ? req.file.path : req.files.media[0].path;
-    const uploadedMedia = await uploadOnCloudinary(mediaPath);
+  let mediaUrl = existing.media;
+  const fileToProcess =
+    req.file || (req.files && req.files.media && req.files.media[0]);
+
+  if (fileToProcess) {
+    if (existing.media) {
+      await deleteFromCloudinary(existing.media);
+    }
+
+    const uploadedMedia = await uploadOnCloudinary(fileToProcess.path);
     if (!uploadedMedia?.url) {
       return res.status(400).json(new ApiError(400, "Error uploading media"));
     }
     mediaUrl = uploadedMedia.url;
   }
 
-  // Update the subscription
-  const updatedService = await Subscription.findByIdAndUpdate(
+  const updatedSubscription = await Subscription.findByIdAndUpdate(
     id,
     {
       name,
@@ -217,13 +241,14 @@ const updateSubscription = asyncHandler(async (req, res) => {
       sessionType,
       trainer,
       price,
-      Address, // only the ObjectId
+      Address,
       media: mediaUrl,
       description,
-      isActive,
       date: parsedDate,
       startTime,
       endTime,
+      isSingleClass: parsedIsSingleClass,
+      isActive,
       updated_by: req.user?._id,
     },
     { new: true }
@@ -231,8 +256,11 @@ const updateSubscription = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, updatedService, "Service updated successfully"));
+    .json(
+      new ApiResponse(200, updatedSubscription, "Service updated successfully")
+    );
 });
+
 
 // Get all ServiceTypes
 // const getAllSubscription = asyncHandler(async (req, res) => {
@@ -300,7 +328,6 @@ const updateSubscription = asyncHandler(async (req, res) => {
 const getAllSubscription = asyncHandler(async (req, res) => {
   try {
     const { isExpired } = req.query;
-
     const now = new Date();
 
     let filter = {};
@@ -308,13 +335,31 @@ const getAllSubscription = asyncHandler(async (req, res) => {
     if (isExpired === "true") {
       filter = {
         $expr: {
-          $lt: [{ $arrayElemAt: ["$date", 1] }, now], // Expired: endDate < now
+          $lt: [
+            {
+              $cond: [
+                { $eq: [{ $size: "$date" }, 1] },
+                { $arrayElemAt: ["$date", 0] },
+                { $arrayElemAt: ["$date", 1] },
+              ],
+            },
+            now,
+          ],
         },
       };
     } else if (isExpired === "false") {
       filter = {
         $expr: {
-          $gte: [{ $arrayElemAt: ["$date", 1] }, now], // Active: endDate >= now
+          $gte: [
+            {
+              $cond: [
+                { $eq: [{ $size: "$date" }, 1] },
+                { $arrayElemAt: ["$date", 0] },
+                { $arrayElemAt: ["$date", 1] },
+              ],
+            },
+            now,
+          ],
         },
       };
     }
@@ -373,7 +418,12 @@ const getAllSubscription = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         enrichedSubscriptions,
-        `All ${isExpired === "true" ? "expired" : isExpired === "false" ? "active" : ""
+        `All ${
+          isExpired === "true"
+            ? "expired"
+            : isExpired === "false"
+            ? "active"
+            : ""
         } subscriptions fetched successfully with reviews and ratings`
       )
     );
@@ -384,6 +434,7 @@ const getAllSubscription = asyncHandler(async (req, res) => {
       .json(new ApiError(500, "Failed to fetch subscriptions"));
   }
 });
+   
 
 
 
@@ -616,7 +667,6 @@ const getSubscriptionsByTrainerId = asyncHandler(async (req, res) => {
     );
 });
 
-// sort by relevance, price, rating filtration
 const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
   const {
     sortBy = "relevance",
@@ -626,18 +676,83 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
     categoryId,
     sessionTypeId,
     trainerId,
+    isExpired,
+    isSingleClass,
     page = 1,
     limit = 10,
-  } = req.body;
+  } = req.body || {};
 
-  const filter = {};
+  const now = new Date();
 
-  if (minPrice) filter.price = { ...filter.price, $gte: Number(minPrice) };
-  if (maxPrice) filter.price = { ...filter.price, $lte: Number(maxPrice) };
-  if (categoryId) filter.categoryId = categoryId;
-  if (sessionTypeId) filter.sessionType = sessionTypeId;
-  if (trainerId) filter.trainer = trainerId;
+  // Auto-update expired subscriptions
+  const allSubscriptions = await Subscription.find({}, { _id: 1, date: 1 });
+  const expiredIds = allSubscriptions
+    .filter((sub) => {
+      const dates = sub.date || [];
+      const lastDate = dates.length === 2 ? dates[1] : dates[0];
+      return lastDate && new Date(lastDate) < now;
+    })
+    .map((sub) => sub._id);
 
+  if (expiredIds.length > 0) {
+    await Subscription.updateMany(
+      { _id: { $in: expiredIds } },
+      { $set: { isExpired: true } }
+    );
+  }
+
+  const normalizeToArray = (input) =>
+    Array.isArray(input) ? input : input ? [input] : [];
+
+  const buildFilter = () => {
+    const filter = {};
+
+    if (isExpired !== undefined) {
+      if (Array.isArray(isExpired)) {
+        filter.isExpired = { $in: isExpired.map((v) => v === "true" || v === true) };
+      } else {
+        filter.isExpired = isExpired === "true" || isExpired === true;
+      }
+    }
+
+    if (isSingleClass !== undefined) {
+      if (Array.isArray(isSingleClass)) {
+        filter.isSingleClass = {
+          $in: isSingleClass.map((v) => v === "true" || v === true),
+        };
+      } else {
+        filter.isSingleClass = isSingleClass === "true" || isSingleClass === true;
+      }
+    }
+
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = Number(minPrice);
+      if (maxPrice) filter.price.$lte = Number(maxPrice);
+    }
+
+    if (categoryId) {
+      const values = normalizeToArray(categoryId);
+      if (values.length === 1) filter.categoryId = values[0];
+      else filter.categoryId = { $in: values };
+    }
+
+    if (sessionTypeId) {
+      const values = normalizeToArray(sessionTypeId);
+      if (values.length === 1) filter.sessionType = values[0];
+      else filter.sessionType = { $in: values };
+    }
+
+    if (trainerId) {
+      const values = normalizeToArray(trainerId);
+      if (values.length === 1) filter.trainer = values[0];
+      else filter.trainer = { $in: values };
+    }
+
+    return filter;
+  };
+
+  let filter = buildFilter();
   const skip = (Number(page) - 1) * Number(limit);
 
   let subscriptions = await Subscription.find(filter)
@@ -646,14 +761,29 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
     .limit(Number(limit))
     .lean();
 
-  // Get all ratings for the current page of subscriptions
+  // Fallback for isExpired=false
+  if (
+    subscriptions.length === 0 &&
+    (isExpired === false || isExpired === "false")
+  ) {
+    delete filter.isExpired;
+    filter.isExpired = { $ne: true };
+
+    subscriptions = await Subscription.find(filter)
+      .populate("categoryId Address sessionType trainer")
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
+  }
+
+  const subscriptionIds = subscriptions.map((s) => s._id);
   const allReviews = await SubscriptionRatingReview.find({
-    subscriptionId: { $in: subscriptions.map((s) => s._id) },
+    subscriptionId: { $in: subscriptionIds },
   }).lean();
 
   const reviewMap = {};
   for (const review of allReviews) {
-    const subId = review.subscriptionId?.toString();
+    const subId = review.subscriptionId.toString();
     if (!reviewMap[subId]) reviewMap[subId] = [];
     reviewMap[subId].push(review);
   }
@@ -669,11 +799,11 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
       ...sub,
       reviews,
       totalReviews,
-      averageRating: averageRating.toFixed(2),
+      averageRating: Number(averageRating.toFixed(2)),
     };
   });
 
-  // Sort logic
+  // Sorting
   if (sortBy === "price") {
     subscriptions.sort((a, b) =>
       order === "asc" ? a.price - b.price : b.price - a.price
@@ -685,7 +815,6 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
         : b.averageRating - a.averageRating
     );
   } else {
-    // default relevance: sort by createdAt
     subscriptions.sort((a, b) =>
       order === "asc"
         ? new Date(a.createdAt) - new Date(b.createdAt)
@@ -693,21 +822,29 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
     );
   }
 
-  // Total count for pagination metadata
   const totalCount = await Subscription.countDocuments(filter);
 
   return res.status(200).json(
-    new ApiResponse(200, {
-      subscriptions,
-      pagination: {
-        total: totalCount,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(totalCount / limit),
+    new ApiResponse(
+      200,
+      {
+        subscriptions,
+        pagination: {
+          total: totalCount,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(totalCount / limit),
+        },
       },
-    }, "Filtered and sorted subscriptions")
+      "Filtered and sorted subscriptions"
+    )
   );
 });
+
+
+
+
+
 
 
 // get Subscriptions By SessionType-Id

@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 import { Package } from "../../models/package.model.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { deleteFromCloudinary, uploadOnCloudinary } from "../../utils/cloudinary.js";
 
 // Create Package
 const createPackage = asyncHandler(async (req, res) => {
@@ -14,24 +15,62 @@ const createPackage = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "All fields are required"));
   }
 
-  const image = req.file?.path || "";
+  // Upload image to Cloudinary if provided
+  let imageUrl = null;
+  if (req.file || (req.files && req.files.image && req.files.image[0])) {
+    const imagePath = req.file ? req.file.path : req.files.image[0].path;
+    const uploadedImage = await uploadOnCloudinary(imagePath);
+
+    if (!uploadedImage?.url) {
+      return res.status(400).json(new ApiError(400, "Error uploading image"));
+    }
+
+    imageUrl = uploadedImage.url;
+  }
 
   const newPackage = await Package.create({
     name,
     price,
     numberOfClasses,
     duration,
-    image,
+    image: imageUrl,
+    created_by: req.user?._id,
   });
 
-  return res.status(201).json(new ApiResponse(201, newPackage, "Package created successfully"));
+  return res
+    .status(201)
+    .json(new ApiResponse(201, newPackage, "Package created successfully"));
 });
 
+
 // Get All Packages
+// Change route method to POST: router.post('/packages', getAllPackages)
+
 const getAllPackages = asyncHandler(async (req, res) => {
-  const packages = await Package.find().sort({ createdAt: -1 }).lean();
-  return res.status(200).json(new ApiResponse(200, packages, "All packages fetched"));
+  const { page = 1, limit = 10 } = req.body;
+  const skip = (page - 1) * limit;
+
+  const [packages, totalCount] = await Promise.all([
+    Package.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Package.countDocuments(),
+  ]);
+
+  const totalPages = Math.ceil(totalCount / limit);
+
+  return res.status(200).json(
+    new ApiResponse(200, {
+      packages,
+      page,
+      totalPages,
+      totalCount,
+    }, "Packages fetched with pagination")
+  );
 });
+
 
 // Get Package by ID
 const getPackageById = asyncHandler(async (req, res) => {
@@ -55,25 +94,37 @@ const updatePackage = asyncHandler(async (req, res) => {
     return res.status(404).json(new ApiError(404, "Package not found"));
   }
 
-  if (req.file?.path) {
-    // Optionally delete old image
+  // Handle image update via Cloudinary
+  if (req.file || (req.files && req.files.image && req.files.image[0])) {
+    // Delete old image from Cloudinary
     if (packageData.image) {
-      fs.unlink(packageData.image, (err) => {
-        if (err) console.error("Failed to delete old image:", err);
-      });
+      await deleteFromCloudinary(packageData.image);
     }
-    packageData.image = req.file.path;
+
+    const imagePath = req.file ? req.file.path : req.files.image[0].path;
+    const uploadedImage = await uploadOnCloudinary(imagePath);
+
+    if (!uploadedImage?.url) {
+      return res.status(400).json(new ApiError(400, "Error uploading image"));
+    }
+
+    packageData.image = uploadedImage.url;
   }
 
+  // Update other fields
   packageData.name = name || packageData.name;
   packageData.price = price || packageData.price;
   packageData.numberOfClasses = numberOfClasses || packageData.numberOfClasses;
   packageData.duration = duration || packageData.duration;
+  packageData.updated_by = req.user?._id;
 
   await packageData.save();
 
-  return res.status(200).json(new ApiResponse(200, packageData, "Package updated successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, packageData, "Package updated successfully"));
 });
+
 
 // Delete Package
 const deletePackage = asyncHandler(async (req, res) => {

@@ -694,24 +694,25 @@ const getSingleSubscriptionByBookingId = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "Booking ID is required"));
   }
 
-  const booking = await SubscriptionBooking.findById(bookingId)
-   .populate({
-      path: "subscription",
-      populate: [
-        { path: "categoryId", select: "cName" },
-        { path: "sessionType", select: "sessionName" },
-        { path: "trainer", select: "first_name last_name email" },
-        {
-          path: "Address",
-          select: "streetName landmark country city",
-          populate: [
-            { path: "country", select: "name" },
-            { path: "city", select: "name" }
-          ]
-        }
-      ]
-    })
-    .sort({ createdAt: -1 });
+const booking = await SubscriptionBooking.findById(bookingId)
+  .populate({
+    path: "subscription",
+    select: "_id", 
+    populate: [
+      { path: "categoryId", select: "cName" },
+      { path: "sessionType", select: "sessionName" },
+      { path: "trainer", select: "first_name last_name email" },
+      {
+        path: "Address", // ⛔️ likely should be lowercase "address"
+        select: "streetName landmark country city",
+        populate: [
+          { path: "country", select: "name" },
+          { path: "city", select: "name" }
+        ]
+      }
+    ]
+  });
+
 
   if (!booking || !booking.subscription) {
     return res.status(404).json(new ApiResponse(404, {}, "Subscription not found for this booking"));
@@ -719,7 +720,7 @@ const getSingleSubscriptionByBookingId = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, booking.subscription, "Subscription fetched successfully from booking ID"));
+    .json(new ApiResponse(200, booking, "Subscription fetched successfully from booking ID"));
 });
 
 // Get All Subscriptions by Customer/User ID

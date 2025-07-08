@@ -20,38 +20,23 @@ const subscriptionSchema = new Schema(
       required: true,
     },
 
-    // country: {
-    //   type: Schema.Types.ObjectId,
-    //   ref: "Country",
-    //   default: null,
-    // },
-    // city: {
-    //   type: Schema.Types.ObjectId,
-    //   ref: "City",
-    //   default: null,
-    // },
-    // streetName: {
-    //   type: String,
-    //   required: true,
-    // },
+    isSingleClass: {
+      type: Boolean,
+      required: true,
+      default: true,
+    },
 
-    //  coordinates: {
-    //   type: {
-    //     type: String,
-    //     enum: ["Point"],
-    //     default: "Point",
-    //     required: true
-    //   },
-    //   coordinates: {
-    //     type: [Number], // [longitude, latitude]
-    //     required: true
-    //   }
-    // },
+    isExpired: {
+  type: Boolean,
+  default: false,
+  required: true,
+},
+
 
     price: { type: Number, required: true },
     media: { type: String, default: null },
     description: { type: String, default: null },
-    isActive: { type: Boolean, default: true },
+    // isActive: { type: Boolean, default: true },
 
     date: {
       type: [Date],
