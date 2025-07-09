@@ -11,6 +11,18 @@ import { deleteFromCloudinary, uploadOnCloudinary } from "../../utils/cloudinary
 const createPackage = asyncHandler(async (req, res) => {
   const { name, price, numberOfClasses, duration } = req.body;
 
+  // Parse features if they come as a JSON string
+  let features = [];
+  if (req.body.features) {
+    try {
+      features = Array.isArray(req.body.features)
+        ? req.body.features
+        : JSON.parse(req.body.features);
+    } catch (error) {
+      return res.status(400).json(new ApiError(400, "Invalid features format"));
+    }
+  }
+
   if (!name || !price || !numberOfClasses || !duration) {
     return res.status(400).json(new ApiError(400, "All fields are required"));
   }
@@ -34,12 +46,66 @@ const createPackage = asyncHandler(async (req, res) => {
     numberOfClasses,
     duration,
     image: imageUrl,
+    features,
     created_by: req.user?._id,
   });
 
   return res
     .status(201)
     .json(new ApiResponse(201, newPackage, "Package created successfully"));
+});
+
+
+// Update Package
+const updatePackage = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { name, price, numberOfClasses, duration } = req.body;
+
+  let features = [];
+  if (req.body.features) {
+    try {
+      features = Array.isArray(req.body.features)
+        ? req.body.features
+        : JSON.parse(req.body.features);
+    } catch (error) {
+      return res.status(400).json(new ApiError(400, "Invalid features format"));
+    }
+  }
+
+  const packageData = await Package.findById(id);
+  if (!packageData) {
+    return res.status(404).json(new ApiError(404, "Package not found"));
+  }
+
+  // Handle image update via Cloudinary
+  if (req.file || (req.files && req.files.image && req.files.image[0])) {
+    if (packageData.image) {
+      await deleteFromCloudinary(packageData.image);
+    }
+
+    const imagePath = req.file ? req.file.path : req.files.image[0].path;
+    const uploadedImage = await uploadOnCloudinary(imagePath);
+
+    if (!uploadedImage?.url) {
+      return res.status(400).json(new ApiError(400, "Error uploading image"));
+    }
+
+    packageData.image = uploadedImage.url;
+  }
+
+  // Update fields if provided
+  packageData.name = name || packageData.name;
+  packageData.price = price || packageData.price;
+  packageData.numberOfClasses = numberOfClasses || packageData.numberOfClasses;
+  packageData.duration = duration || packageData.duration;
+  if (features.length > 0) packageData.features = features;
+  packageData.updated_by = req.user?._id;
+
+  await packageData.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, packageData, "Package updated successfully"));
 });
 
 
@@ -84,46 +150,7 @@ const getPackageById = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, packageData, "Package fetched successfully"));
 });
 
-// Update Package
-const updatePackage = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { name, price, numberOfClasses, duration } = req.body;
 
-  const packageData = await Package.findById(id);
-  if (!packageData) {
-    return res.status(404).json(new ApiError(404, "Package not found"));
-  }
-
-  // Handle image update via Cloudinary
-  if (req.file || (req.files && req.files.image && req.files.image[0])) {
-    // Delete old image from Cloudinary
-    if (packageData.image) {
-      await deleteFromCloudinary(packageData.image);
-    }
-
-    const imagePath = req.file ? req.file.path : req.files.image[0].path;
-    const uploadedImage = await uploadOnCloudinary(imagePath);
-
-    if (!uploadedImage?.url) {
-      return res.status(400).json(new ApiError(400, "Error uploading image"));
-    }
-
-    packageData.image = uploadedImage.url;
-  }
-
-  // Update other fields
-  packageData.name = name || packageData.name;
-  packageData.price = price || packageData.price;
-  packageData.numberOfClasses = numberOfClasses || packageData.numberOfClasses;
-  packageData.duration = duration || packageData.duration;
-  packageData.updated_by = req.user?._id;
-
-  await packageData.save();
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, packageData, "Package updated successfully"));
-});
 
 
 // Delete Package

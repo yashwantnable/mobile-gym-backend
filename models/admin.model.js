@@ -12,7 +12,14 @@ const promoCodeSchema = new Schema(
       enum: ["Percentage", "Fixed_Amount"],
       required: true,
     },
-
+    termsAndConditions: {
+  type: String,
+  required: true,
+},
+ image: {
+      type: String,
+      default: null, 
+    },
     usedBy: [
       {
         type: Schema.Types.ObjectId,

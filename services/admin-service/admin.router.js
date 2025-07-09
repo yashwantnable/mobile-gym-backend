@@ -30,6 +30,7 @@ import {
 } from "./admin.controller.js"
 
 import {getAllSubscriptionRatingReviews} from "../../services/user-service/user.controller.js"
+
 const router = Router()
 
 router.route("/create-pet").post(verifyJWT, upload.uploadAny(),createPet);
@@ -38,8 +39,8 @@ router.route("/findPetById/:petId").get(verifyJWT, findPetById)
 router.route("/findallpet").post(verifyJWT, findAllPets)
 router.route("/deletePet/:petid").delete(verifyJWT, deletePet)
 
-router.route("/create-promo-code").post(verifyJWT, createPromoCode);
-router.route("/update-promo-code/:id").put(verifyJWT,  updatePromoCode);
+router.route("/create-promo-code").post(verifyJWT,multer.uploadSingle("image"), createPromoCode);
+router.route("/update-promo-code/:id").put(verifyJWT,multer.uploadSingle("image"),  updatePromoCode);
 router.route("/get-promo-code-by-id/:id").get(verifyJWT, getPromoCodeById)
 router.route("/get-all-promo-codes").post(verifyJWT, getAllPromoCodes)
 router.route("/delete-promo-code/:id").delete(verifyJWT, deletePromoCode)

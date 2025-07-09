@@ -383,9 +383,10 @@ const createPromoCode = asyncHandler(async (req, res) => {
     minOrderAmount,
     maxDiscountAmount,
     maxUses,
+    termsAndConditions,
   } = req.body;
 
-  const requiredFields = { code, discountType, discountValue, maxUses };
+  const requiredFields = { code, discountType, discountValue, maxUses, termsAndConditions };
   const missingFields = Object.keys(requiredFields).filter(
     (field) =>
       requiredFields[field] === undefined ||
@@ -396,12 +397,19 @@ const createPromoCode = asyncHandler(async (req, res) => {
   if (missingFields.length > 0) {
     return res
       .status(400)
-      .json(
-        new ApiError(
-          400,
-          `Missing required field(s): ${missingFields.join(", ")}`
-        )
-      );
+      .json(new ApiError(400, `Missing required field(s): ${missingFields.join(", ")}`));
+  }
+
+  // Handle optional image upload
+  let imageUrl = null;
+  const fileToProcess = req.file || (req.files?.image?.[0]);
+
+  if (fileToProcess) {
+    const uploadedImage = await uploadOnCloudinary(fileToProcess.path);
+    if (!uploadedImage?.url) {
+      return res.status(400).json(new ApiError(400, "Error uploading image"));
+    }
+    imageUrl = uploadedImage.url;
   }
 
   const createdPromoCode = await PromoCode.create({
@@ -417,24 +425,28 @@ const createPromoCode = asyncHandler(async (req, res) => {
     minOrderAmount,
     maxDiscountAmount,
     maxUses,
+    termsAndConditions,
+    image: imageUrl,
     created_by: req.user?._id,
   });
 
   return res
     .status(201)
-    .json(
-      new ApiResponse(201, createdPromoCode, "Promo Code created successfully")
-    );
+    .json(new ApiResponse(201, createdPromoCode, "Promo Code created successfully"));
 });
+
+
 
 
 // Update Promo Code
 const updatePromoCode = asyncHandler(async (req, res) => {
-  if (!req.params.id || req.params.id === "undefined") {
+  const { id } = req.params;
+
+  if (!id || id === "undefined") {
     return res.status(400).json(new ApiError(400, "ID not provided"));
   }
 
-  if (Object.keys(req.body).length === 0) {
+  if (Object.keys(req.body).length === 0 && !req.file && !req.files?.image) {
     return res.status(400).json(new ApiError(400, "No data provided to update"));
   }
 
@@ -451,11 +463,27 @@ const updatePromoCode = asyncHandler(async (req, res) => {
     minOrderAmount,
     maxDiscountAmount,
     maxUses,
+    termsAndConditions,
   } = req.body;
 
-  const existingPromoCode = await PromoCode.findById(req.params.id);
+  const existingPromoCode = await PromoCode.findById(id);
   if (!existingPromoCode) {
     return res.status(404).json(new ApiError(404, "Promo code not found"));
+  }
+
+  // Handle image upload/update
+  let imageUrl = existingPromoCode.image;
+  const fileToProcess = req.file || (req.files?.image?.[0]);
+
+  if (fileToProcess) {
+    if (existingPromoCode.image) {
+      await deleteFromCloudinary(existingPromoCode.image);
+    }
+    const uploadedImage = await uploadOnCloudinary(fileToProcess.path);
+    if (!uploadedImage?.url) {
+      return res.status(400).json(new ApiError(400, "Error uploading image"));
+    }
+    imageUrl = uploadedImage.url;
   }
 
   const updateData = {
@@ -471,24 +499,24 @@ const updatePromoCode = asyncHandler(async (req, res) => {
     minOrderAmount,
     maxDiscountAmount,
     maxUses,
+    termsAndConditions,
+    image: imageUrl,
     updated_by: req.user._id,
   };
 
-  // Remove undefined fields to avoid overwriting existing data unnecessarily
+  // Remove undefined fields
   Object.keys(updateData).forEach(
     (key) => updateData[key] === undefined && delete updateData[key]
   );
 
-  const updatedPromoCode = await PromoCode.findByIdAndUpdate(
-    req.params.id,
-    updateData,
-    { new: true }
-  );
+  const updatedPromoCode = await PromoCode.findByIdAndUpdate(id, updateData, { new: true });
 
   return res
     .status(200)
     .json(new ApiResponse(200, updatedPromoCode, "Promo code updated successfully"));
 });
+
+
 
 
 // Get All Promo Codes

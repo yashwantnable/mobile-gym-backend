@@ -443,7 +443,7 @@ const getAllSubscription = asyncHandler(async (req, res) => {
 const getSubscriptionById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const sub = await Subscription.findById(id)
-    .populate("categoryId trainer sessionType")
+    .populate("categoryId trainer sessionType Address")
     .lean();
 
   if (!sub) {
@@ -678,6 +678,7 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
     trainerId,
     isExpired,
     isSingleClass,
+    location,
     page = 1,
     limit = 10,
   } = req.body || {};
@@ -704,53 +705,60 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
   const normalizeToArray = (input) =>
     Array.isArray(input) ? input : input ? [input] : [];
 
-  const buildFilter = () => {
-    const filter = {};
+ const buildFilter = () => {
+  const filter = {};
 
-    if (isExpired !== undefined) {
-      if (Array.isArray(isExpired)) {
-        filter.isExpired = { $in: isExpired.map((v) => v === "true" || v === true) };
-      } else {
-        filter.isExpired = isExpired === "true" || isExpired === true;
-      }
+  if (isExpired !== undefined) {
+    if (Array.isArray(isExpired)) {
+      filter.isExpired = { $in: isExpired.map((v) => v === "true" || v === true) };
+    } else {
+      filter.isExpired = isExpired === "true" || isExpired === true;
     }
+  }
 
-    if (isSingleClass !== undefined) {
-      if (Array.isArray(isSingleClass)) {
-        filter.isSingleClass = {
-          $in: isSingleClass.map((v) => v === "true" || v === true),
-        };
-      } else {
-        filter.isSingleClass = isSingleClass === "true" || isSingleClass === true;
-      }
+  if (isSingleClass !== undefined) {
+    if (Array.isArray(isSingleClass)) {
+      filter.isSingleClass = {
+        $in: isSingleClass.map((v) => v === "true" || v === true),
+      };
+    } else {
+      filter.isSingleClass = isSingleClass === "true" || isSingleClass === true;
     }
+  }
 
-    if (minPrice || maxPrice) {
-      filter.price = {};
-      if (minPrice) filter.price.$gte = Number(minPrice);
-      if (maxPrice) filter.price.$lte = Number(maxPrice);
-    }
+  if (minPrice || maxPrice) {
+    filter.price = {};
+    if (minPrice) filter.price.$gte = Number(minPrice);
+    if (maxPrice) filter.price.$lte = Number(maxPrice);
+  }
 
-    if (categoryId) {
-      const values = normalizeToArray(categoryId);
-      if (values.length === 1) filter.categoryId = values[0];
-      else filter.categoryId = { $in: values };
-    }
+  if (categoryId) {
+    const values = normalizeToArray(categoryId);
+    if (values.length === 1) filter.categoryId = values[0];
+    else filter.categoryId = { $in: values };
+  }
 
-    if (sessionTypeId) {
-      const values = normalizeToArray(sessionTypeId);
-      if (values.length === 1) filter.sessionType = values[0];
-      else filter.sessionType = { $in: values };
-    }
+  if (sessionTypeId) {
+    const values = normalizeToArray(sessionTypeId);
+    if (values.length === 1) filter.sessionType = values[0];
+    else filter.sessionType = { $in: values };
+  }
 
-    if (trainerId) {
-      const values = normalizeToArray(trainerId);
-      if (values.length === 1) filter.trainer = values[0];
-      else filter.trainer = { $in: values };
-    }
+  if (trainerId) {
+    const values = normalizeToArray(trainerId);
+    if (values.length === 1) filter.trainer = values[0];
+    else filter.trainer = { $in: values };
+  }
 
-    return filter;
-  };
+  if (location) {
+    const values = normalizeToArray(location);
+    if (values.length === 1) filter.Address = values[0];
+    else filter.Address = { $in: values };
+  }
+
+  return filter;
+};
+ 
 
   let filter = buildFilter();
   const skip = (Number(page) - 1) * Number(limit);

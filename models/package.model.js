@@ -10,7 +10,11 @@ const packageSchema = new mongoose.Schema({
     type: String,
     enum: ['daily', 'weekly', 'monthly'],
     required: true
-  }
+  },
+  features: {
+  type: [String],
+  default: [],
+},
 }, { timestamps: true });
 
 export const Package = mongoose.model("Package", packageSchema);

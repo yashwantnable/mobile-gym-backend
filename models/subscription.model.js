@@ -26,6 +26,7 @@ const subscriptionSchema = new Schema(
       default: true,
     },
 
+
     isExpired: {
   type: Boolean,
   default: false,
