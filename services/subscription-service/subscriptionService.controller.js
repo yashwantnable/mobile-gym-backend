@@ -41,7 +41,44 @@ const enrichSubscriptionsWithReviews = async (subscriptions) => {
   });
 };
 
-// Create Subscription
+const parseTime = (timeStr = "") => {
+  const [h = 0, m = 0] = timeStr.split(":").map(Number);
+  return { h, m };
+};
+
+const isFutureDateTime = (dateISO, timeStr) => {
+  const now = new Date();
+  const date = new Date(dateISO);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  if (date < today) return false;
+  if (date.toDateString() === now.toDateString()) {
+    const { h, m } = parseTime(timeStr);
+    date.setHours(h, m, 0, 0);
+    return date > now;
+  }
+
+  return true;
+};
+
+const validateDateAndTime = ({ parsedDate, startTime, endTime, isSingleClass }) => {
+  for (const d of parsedDate) {
+    if (!isFutureDateTime(d, startTime)) {
+      throw new ApiError(400, "Date/time must be in the future");
+    }
+  }
+
+  if (!isSingleClass && new Date(parsedDate[1]) < new Date(parsedDate[0])) {
+    throw new ApiError(400, "End date must be on or after start date");
+  }
+
+  const { h: sh, m: sm } = parseTime(startTime);
+  const { h: eh, m: em } = parseTime(endTime);
+  if (eh < sh || (eh === sh && em <= sm)) {
+    throw new ApiError(400, "endTime must be after startTime");
+  }
+};
+
 const createSubscription = asyncHandler(async (req, res) => {
   let {
     name,
@@ -58,11 +95,9 @@ const createSubscription = asyncHandler(async (req, res) => {
     isSingleClass
   } = req.body;
 
-  // Convert "true"/"false" string to boolean
   isSingleClass = isSingleClass === 'true' || isSingleClass === true;
   isActive = isActive === 'true' || isActive === true;
 
-  // Parse date (JSON string to array)
   let parsedDate = date;
   if (typeof parsedDate === "string") {
     try {
@@ -72,17 +107,9 @@ const createSubscription = asyncHandler(async (req, res) => {
     }
   }
 
-  // Validate required fields
   if (
-    !name ||
-    !categoryId ||
-    !sessionType ||
-    price === undefined ||
-    !parsedDate ||
-    !trainer ||
-    !startTime ||
-    !endTime ||
-    !Address
+    !name || !categoryId || !sessionType || price === undefined || !parsedDate ||
+    !trainer || !startTime || !endTime || !Address
   ) {
     return res.status(400).json(new ApiError(400, "Missing required fields"));
   }
@@ -107,7 +134,8 @@ const createSubscription = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "Class duration must have exactly two dates"));
   }
 
-  // Handle optional media upload
+  validateDateAndTime({ parsedDate, startTime, endTime, isSingleClass });
+
   let mediaUrl = null;
   const fileToProcess = req.file || (req.files?.media?.[0]);
 
@@ -136,13 +164,9 @@ const createSubscription = asyncHandler(async (req, res) => {
     created_by: req.user?._id,
   });
 
-  return res
-    .status(201)
-    .json(new ApiResponse(201, newSubscription, "Service created successfully"));
+  return res.status(201).json(new ApiResponse(201, newSubscription, "Service created successfully"));
 });
 
-
-// Update Subscription
 const updateSubscription = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -161,10 +185,8 @@ const updateSubscription = asyncHandler(async (req, res) => {
     isSingleClass,
   } = req.body;
 
-  // Parse boolean string
   const parsedIsSingleClass = isSingleClass === "true" || isSingleClass === true;
 
-  // Parse date array string
   let parsedDate = date;
   if (typeof parsedDate === "string") {
     try {
@@ -174,17 +196,9 @@ const updateSubscription = asyncHandler(async (req, res) => {
     }
   }
 
-  // Validate required fields
   if (
-    !name ||
-    !categoryId ||
-    !sessionType ||
-    !price ||
-    !parsedDate ||
-    !trainer ||
-    !startTime ||
-    !endTime ||
-    !Address ||
+    !name || !categoryId || !sessionType || !price || !parsedDate ||
+    !trainer || !startTime || !endTime || !Address ||
     typeof parsedIsSingleClass !== "boolean"
   ) {
     return res.status(400).json(new ApiError(400, "Missing required fields"));
@@ -199,33 +213,25 @@ const updateSubscription = asyncHandler(async (req, res) => {
   }
 
   if (parsedIsSingleClass && parsedDate.length !== 1) {
-    return res
-      .status(400)
-      .json(new ApiError(400, "Single class must have exactly one date"));
+    return res.status(400).json(new ApiError(400, "Single class must have exactly one date"));
   }
 
   if (!parsedIsSingleClass && parsedDate.length !== 2) {
-    return res
-      .status(400)
-      .json(new ApiError(400, "Class duration must have exactly two dates"));
+    return res.status(400).json(new ApiError(400, "Class duration must have exactly two dates"));
   }
 
-  // Find existing subscription
+  validateDateAndTime({ parsedDate, startTime, endTime, isSingleClass: parsedIsSingleClass });
+
   const existing = await Subscription.findById(id);
   if (!existing) {
     return res.status(404).json(new ApiError(404, "Service not found"));
   }
 
-  // Handle media update
   let mediaUrl = existing.media;
-  const fileToProcess =
-    req.file || (req.files && req.files.media && req.files.media[0]);
+  const fileToProcess = req.file || (req.files?.media?.[0]);
 
   if (fileToProcess) {
-    if (existing.media) {
-      await deleteFromCloudinary(existing.media);
-    }
-
+    if (existing.media) await deleteFromCloudinary(existing.media);
     const uploadedMedia = await uploadOnCloudinary(fileToProcess.path);
     if (!uploadedMedia?.url) {
       return res.status(400).json(new ApiError(400, "Error uploading media"));
@@ -254,11 +260,7 @@ const updateSubscription = asyncHandler(async (req, res) => {
     { new: true }
   );
 
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(200, updatedSubscription, "Service updated successfully")
-    );
+  return res.status(200).json(new ApiResponse(200, updatedSubscription, "Service updated successfully"));
 });
 
 
@@ -434,17 +436,25 @@ const getAllSubscription = asyncHandler(async (req, res) => {
       .json(new ApiError(500, "Failed to fetch subscriptions"));
   }
 });
-   
-
-
 
 
 // Get Subscription by ID
 const getSubscriptionById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const sub = await Subscription.findById(id)
-    .populate("categoryId trainer sessionType Address")
-    .lean();
+    .populate([
+        { path: "categoryId" },
+        { path: "sessionType" },
+        { path: "trainer" },
+        {
+          path: "Address",
+          populate: [
+            { path: "city", select: "name" },
+            { path: "country", select: "name" },
+          ],
+        },
+      ])
+      .lean();
 
   if (!sub) {
     return res.status(404).json(new ApiError(404, "Service not found"));
@@ -637,16 +647,40 @@ const getSubscriptionsByUserMiles = asyncHandler(async (req, res) => {
 });
 
 
-// get subscription by trainer id
+// controllers/subscription.controller.ts
 const getSubscriptionsByTrainerId = asyncHandler(async (req, res) => {
   const { trainerId } = req.params;
+  const { isExpired } = req.query;        // ←  ?isExpired=true / false / all
 
   if (!trainerId) {
-    return res.status(400).json(new ApiError(400, "Trainer ID is required"));
+    return res.status(400).json(
+      new ApiError(400, 'Trainer ID is required')
+    );
   }
 
-  const subscriptions = await Subscription.find({ trainer: trainerId })
-    .populate("categoryId sessionType trainer")
+  // base filter
+  const filter = { trainer: trainerId };
+
+  // refine based on query
+  // * ?isExpired=false  → only active
+  // * ?isExpired=true   → only expired
+  // * not provided      → all
+  if (isExpired === 'false') filter.isExpired = false;
+  else if (isExpired === 'true') filter.isExpired = true;
+
+  const subscriptions = await Subscription.find(filter)
+    .populate([
+        { path: "categoryId" },
+        { path: "sessionType" },
+        { path: "trainer" },
+        {
+          path: "Address",
+          populate: [
+            { path: "city", select: "name" },
+            { path: "country", select: "name" },
+          ],
+        },
+      ])
     .sort({ createdAt: -1 })
     .lean();
 
@@ -654,7 +688,7 @@ const getSubscriptionsByTrainerId = asyncHandler(async (req, res) => {
     return res
       .status(200)
       .json(
-        new ApiResponse(200, [], "No subscriptions found for this trainer")
+        new ApiResponse(200, [], 'No subscriptions found for this trainer')
       );
   }
 
@@ -663,9 +697,14 @@ const getSubscriptionsByTrainerId = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, enriched, "Subscriptions fetched by trainer ID")
+      new ApiResponse(
+        200,
+        enriched,
+        'Subscriptions fetched by trainer ID'
+      )
     );
 });
+
 
 const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
   const {
@@ -849,13 +888,6 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
   );
 });
 
-
-
-
-
-
-
-// get Subscriptions By SessionType-Id
 const getSubscriptionsBySessionTypeId = asyncHandler(async (req, res) => {
   const { sessionTypeId } = req.params;
 

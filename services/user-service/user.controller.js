@@ -162,9 +162,10 @@ const createUser = asyncHandler(async (req, res) => {
 
 //update User
 const updateUser = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
 
-  if (req.params.id == "undefined" || !req.params.id) {
-    return res.status(400).json(new ApiError(400, "User ID not provided"));
+  if (!userId) {
+    return res.status(400).json(new ApiError(400, "User ID not available from auth"));
   }
 
   if (Object.keys(req.body).length === 0 && !req.file) {
@@ -173,7 +174,6 @@ const updateUser = asyncHandler(async (req, res) => {
 
   const {
     email,
-    // user_role,
     first_name,
     last_name,
     phone_number,
@@ -186,12 +186,12 @@ const updateUser = asyncHandler(async (req, res) => {
     experience,
     experienceYear,
     password,
-    birthday
+    birthday,
   } = req.body;
 
   const imageLocalPath = req.file?.path;
-  
-  const existingUser = await User.findById(req.params.id);
+
+  const existingUser = await User.findById(userId);
   if (!existingUser) {
     return res.status(404).json(new ApiError(404, "User not found"));
   }
@@ -200,23 +200,30 @@ const updateUser = asyncHandler(async (req, res) => {
   if (imageLocalPath) {
     try {
       const [deleteResult, uploadResult] = await Promise.all([
-        existingUser.profile_image ? deleteFromCloudinary(existingUser.profile_image) : Promise.resolve(),
-        uploadOnCloudinary(imageLocalPath)
+        existingUser.profile_image
+          ? deleteFromCloudinary(existingUser.profile_image)
+          : Promise.resolve(),
+        uploadOnCloudinary(imageLocalPath),
       ]);
+
       if (!uploadResult?.url) {
-        return res.status(400).json(new ApiError(400, "Error while uploading profile image"));
+        return res
+          .status(400)
+          .json(new ApiError(400, "Error while uploading profile image"));
       }
+
       profile_image = uploadResult.url;
     } catch (error) {
-      return res.status(500).json(new ApiError(500, "Image handling failed"));
+      return res
+        .status(500)
+        .json(new ApiError(500, "Image handling failed"));
     }
   }
 
   const updatedUser = await User.findByIdAndUpdate(
-    req.params.id,
+    userId,
     {
       email,
-      // user_role,
       first_name,
       last_name,
       phone_number,
@@ -224,14 +231,14 @@ const updateUser = asyncHandler(async (req, res) => {
       address,
       age,
       country,
-      birthday,
       city,
+      birthday,
       specialization,
       experience,
       experienceYear,
       password,
       profile_image,
-      updated_by: req.user?._id,
+      updated_by: userId,
       updated_at: new Date(),
     },
     { new: true }
@@ -241,6 +248,7 @@ const updateUser = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, updatedUser, "User updated successfully"));
 });
+
  
 
 //Get alla user

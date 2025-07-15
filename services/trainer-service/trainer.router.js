@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "../../middlewares/multer.middleware.js";
 import { verifyJWT } from "../../middlewares/auth.middleware.js";
-import { adminOnly,groomerOnly } from "../../middlewares/role.middleware.js";
+import { adminOnly,trainerOnly } from "../../middlewares/role.middleware.js";
 
 import {
   createTrainer,
@@ -23,7 +23,7 @@ import {
 
 const router = Router();
 
-router.route("/update-trainer-status/:groomerId").patch(verifyJWT, adminOnly, updateTrainerStatus);
+router.route("/update-trainer-status/:trainerId").patch(verifyJWT, trainerOnly, updateTrainerStatus);
 router.route("/create-trainer").post(verifyJWT, adminOnly, multer.uploadSingle("profile_image"), createTrainer);
 router.route("/get-all-trainers").get(verifyJWT, getAllTrainer);
 router.route("/get-trainerBy-id/:id").get(verifyJWT, adminOnly, getTrainerrById);
@@ -32,13 +32,13 @@ router.route("/delete-trainer/:id").delete(verifyJWT, adminOnly, deleteTrainer);
 
 
 //get all orders
-router.route("/get-all-orders").get(verifyJWT, groomerOnly, getAllOrders);
+router.route("/get-all-orders").get(verifyJWT, trainerOnly, getAllOrders);
 
 //get all assigned job
 router.route("/get-all-assigned-jobs").post(verifyJWT, getAllAssignedJobs);
 router.route("/get-all-order-by-id/:id").get(verifyJWT, getOrderDetailsById);
 // router.route("/groomer-checkin-checkout/:orderDetailsId").post(verifyJWT, updateBookingStatus);
-router.route("/update-groomer-profile-by-groomer/:id").put(verifyJWT, multer.uploadSingle("profile_image"), updateTrainerProfileByTrainer);
+router.route("/update-trainer-profiles/:trainerId").put(verifyJWT, multer.uploadSingle("profile_image"), updateTrainerProfileByTrainer);
 
 router.route("/checkin/:orderDetailsId").post(verifyJWT, trainerCheckin);
 router.route("/initiate-checkout/:orderDetailsId").post(verifyJWT, initiateCheckout);

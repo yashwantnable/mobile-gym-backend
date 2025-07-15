@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { activatePackage, createPackageBooking, getAllPackageBookings, getPackageBookingById, getPackageBookingsByUserId, joinClassWithPackage } from "./packageBooking.controller.js";
+import { activatePackage, createPackageBooking, getAllPackageBookings, getCustomersByPackageId, getMyJoinedClasses, getPackageBookingById, getPackageBookingsByUserId, joinClassWithPackage } from "./packageBooking.controller.js";
 import { verifyJWT } from "../../middlewares/auth.middleware.js";
 
 
@@ -11,5 +11,7 @@ router.post("/package-booking-join-class", verifyJWT, joinClassWithPackage);
 router.get("/get-all-package-booking", verifyJWT, getAllPackageBookings); 
 router.get("/get-package-booking-by-id/:id", verifyJWT, getPackageBookingById); 
 router.get("/get-package-booking-by-user-id/:userId", verifyJWT, getPackageBookingsByUserId); 
+router.get("/get-customers-by-package--id/:packageId", verifyJWT, getCustomersByPackageId); 
+router.get("/get-all-joined-classes-user", verifyJWT,   getMyJoinedClasses); 
 
 export default router;

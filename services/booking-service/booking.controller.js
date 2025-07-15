@@ -505,35 +505,35 @@ const confirmTimeslotBooking = asyncHandler(async (req, res) => {
 // Create a new booking
 const createSubscriptionBooking = asyncHandler(async (req, res) => {
   const { subscription } = req.body;
-
-  if (!subscription) {
-    throw new ApiError(400, "Required fields are missing");
-  }
-
   const customer = req.user._id;
 
-  // Fetch the subscription to check expiry
+  if (!subscription) {
+    throw new ApiError(400, "Subscription ID is required");
+  }
+
+  // Fetch the subscription details
   const foundSubscription = await Subscription.findById(subscription);
   if (!foundSubscription) {
     throw new ApiError(404, "Subscription not found");
   }
 
-  // Check if expire array exists and has a second date
+  // Validate the subscription has a valid date range
   if (
     !Array.isArray(foundSubscription.date) ||
     foundSubscription.date.length < 2
   ) {
-    throw new ApiError(400, "Invalid subscription date data");
+    throw new ApiError(400, "Subscription date range is invalid");
   }
 
   const expiryDate = new Date(foundSubscription.date[1]);
   const today = new Date();
 
+  // Check if the subscription has expired
   if (expiryDate < today) {
     throw new ApiError(400, "This subscription has already expired");
   }
 
-  // ❌ Check if this customer has already booked this subscription
+  // Check if the user has already booked this specific subscription
   const existingBooking = await SubscriptionBooking.findOne({
     customer,
     subscription,
@@ -543,12 +543,13 @@ const createSubscriptionBooking = asyncHandler(async (req, res) => {
     throw new ApiError(400, "You have already booked this subscription");
   }
 
-  // ✅ Create new booking
+  // Create the booking
   const newBooking = await SubscriptionBooking.create({
     subscription,
     customer,
   });
 
+  // Populate the subscription details in the response
   const populatedBooking = await SubscriptionBooking.findById(newBooking._id)
     .populate("subscription");
 
@@ -556,7 +557,6 @@ const createSubscriptionBooking = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(201, populatedBooking, "Subscription booked successfully"));
 });
-
 
 // const updateSubscriptionBooking = asyncHandler(async (req, res) => {
 //   try {
@@ -697,10 +697,11 @@ const getSingleSubscriptionByBookingId = asyncHandler(async (req, res) => {
 const booking = await SubscriptionBooking.findById(bookingId)
   .populate({
     path: "subscription",
-    select: "_id", 
+    select: "_id media price", 
     populate: [
       { path: "categoryId", select: "cName" },
       { path: "sessionType", select: "sessionName" },
+      // { path: "media", select: "media" },
       { path: "trainer", select: "first_name last_name email" },
       {
         path: "Address", // ⛔️ likely should be lowercase "address"
@@ -791,11 +792,84 @@ const getExpiredBookingsByCustomer = asyncHandler(async (req, res) => {
 });
 
 
+// LIST CUSTOMERS FOR A GIVEN SUBSCRIPTION
+
+const getCustomersBySubscriptionId = asyncHandler(async (req, res) => {
+  const { subscriptionId } = req.params;
+
+  if (!subscriptionId) {
+    throw new ApiError(400, "Subscription ID is required");
+  }
+
+  // Find all bookings for this subscription and pull the customer IDs
+  const bookings = await SubscriptionBooking.find(
+    { subscription: subscriptionId },
+    { customer: 1 }                    // projection: only _id and customer
+  ).populate({
+    path: "customer",
+    select: "first_name last_name email phone" // whatever you need
+  });
+
+  if (!bookings.length) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, [], "No customers booked this subscription"));
+  }
+
+  // Extract the populated customer docs
+  const customers = bookings.map(b => b.customer);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, customers, "Customers fetched successfully"));
+});
+
+
+
+//LIST CUSTOMERS GROUPED BY SUBSCRIPTION
+
+const getAllSubscriptionCustomers = asyncHandler(async (req, res) => {
+  // aggregate to avoid N+1 populates when the dataset grows
+  const result = await SubscriptionBooking.aggregate([
+    {
+      $group: {
+        _id: "$subscription",
+        customers: { $addToSet: "$customer" } // unique customers per sub
+      }
+    },
+    // lookup customer details
+    {
+      $lookup: {
+        from: "users",
+        localField: "customers",
+        foreignField: "_id",
+        as: "customers"
+      }
+    },
+    // lookup subscription details (category, trainer, etc.)
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "_id",
+        as: "subscription"
+      }
+    },
+    { $unwind: "$subscription" } // flatten for a nicer shape
+  ]);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Customers per subscription"));
+});
+
 
 
 
 export {
   getExpiredBookingsByCustomer,
+  getCustomersBySubscriptionId,
+  getAllSubscriptionCustomers,
   getSubscriptionsByUserId,
   getAllSubscriptionBookings,
   createSubscriptionBooking,

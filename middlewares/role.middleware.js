@@ -29,7 +29,7 @@ export const adminOnly = asyncHandler(async (req, res, next) => {
 });
 
 
-export const groomerOnly = asyncHandler(async (req, res, next) => {
+export const trainerOnly = asyncHandler(async (req, res, next) => {
     if (!req.user || !req.user._id) {
         return res.status(401).json(new ApiError(401, "Unauthorized User"));
     }
@@ -43,7 +43,7 @@ export const groomerOnly = asyncHandler(async (req, res, next) => {
 
         const userRole = user.user_role;
 
-        if (userRole.role_id === 2 || userRole.name === 'groomer') {
+        if (userRole.role_id === 2 || userRole.name === 'trainer') {
             return next();
         } else {
             return res.status(401).json(new ApiError(401, "Unauthorized User"));

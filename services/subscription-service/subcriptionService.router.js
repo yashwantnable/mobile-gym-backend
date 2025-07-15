@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { verifyJWT } from "../../middlewares/auth.middleware.js";
-import { adminOnly } from "../../middlewares/role.middleware.js";
+import { adminOnly, trainerOnly } from "../../middlewares/role.middleware.js";
 import multer from "../../middlewares/multer.middleware.js";
 import {
   createSubscription,
@@ -34,6 +34,7 @@ router.get("/get-subscriptions-by-session/:sessionTypeId",  getSubscriptionsBySe
 router.post("/get-subscriptions-by-date",  getSubscriptionsByDate);
 
 router.get("/get-subscriptions-by-trainer/:trainerId", getSubscriptionsByTrainerId);
+
 
 router.post("/get-subscriptions-by-coordinates", getSubscriptionsByUserMiles);
 

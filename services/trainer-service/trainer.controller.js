@@ -145,23 +145,24 @@ const getTrainerrById = asyncHandler(async (req, res) => {
 
 // Update trainer
 const updateTrainer = asyncHandler(async (req, res) => {
-  if (!req.params.id || req.params.id === "undefined") {
-    return res.status(400).json(new ApiError(400, "trainer ID not provided"));
+  const trainerId = req.params.id;
+
+  if (!trainerId || trainerId === "undefined") {
+    return res.status(400).json(new ApiError(400, "Trainer ID not provided"));
   }
 
-  const existingtrainer = await User.findById(req.params.id);
-  if (!existingtrainer) {
-    return res.status(404).json(new ApiError(404, "trainer not found"));
+  const existingTrainer = await User.findById(trainerId);
+  if (!existingTrainer) {
+    return res.status(404).json(new ApiError(404, "Trainer not found"));
   }
 
+  // Handle image upload if new image is provided
   const imageLocalPath = req.file?.path;
-  let profile_image = existingtrainer.profile_image;
+  let profile_image = existingTrainer.profile_image;
 
   if (imageLocalPath) {
     const [_, uploadResult] = await Promise.all([
-      existingtrainer.profile_image
-        ? deleteFromCloudinary(existingtrainer.profile_image)
-        : Promise.resolve(),
+      profile_image ? deleteFromCloudinary(profile_image) : Promise.resolve(),
       uploadOnCloudinary(imageLocalPath),
     ]);
 
@@ -171,14 +172,23 @@ const updateTrainer = asyncHandler(async (req, res) => {
     profile_image = uploadResult.url;
   }
 
-  const updatedtrainer = await User.findByIdAndUpdate(
-    req.params.id,
+  // Hash password if present in update
+  if (req.body.password) {
+    req.body.password = await bcrypt.hash(req.body.password, 10);
+  }
+
+  const updatedTrainer = await User.findByIdAndUpdate(
+    trainerId,
     { ...req.body, profile_image },
-    { new: true }
+    { new: true, runValidators: true, context: "query" } // run validators and allow hooks if needed
   ).populate("user_role country city");
 
-  res.status(200).json(new ApiResponse(200, updatedtrainer, "trainer updated successfully"));
+  res
+    .status(200)
+    .json(new ApiResponse(200, updatedTrainer, "Trainer updated successfully"));
 });
+
+
 /**--------- */
 const updateTrainerProfileByTrainer = asyncHandler(async (req, res) => {
   const trainerId = req.params.id;
@@ -391,6 +401,7 @@ const updateTrainerStatus = asyncHandler(async (req, res) => {
 //   }
 // });
 /**---- */
+
 const getAllOrders = asyncHandler(async (req, res) => {
   try {
     const trainerId = req.user._id;

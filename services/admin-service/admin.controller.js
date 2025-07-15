@@ -16,7 +16,9 @@ import {Order} from "../../models/order.model.js"
 import {OrderDetails} from "../../models/order.model.js"
 import {TimeSlot} from "../../models/timeslot.model.js"
 import {Artical} from "../../models/artical.model.js"
-import {Booking} from "../../models/booking.model.js"
+import {Booking, SubscriptionBooking} from "../../models/booking.model.js"
+import { Subscription } from "../../models/subscription.model.js";
+import { Package } from "../../models/package.model.js";
 
 const transporter = nodemailer.createTransport({
   service: "Gmail",
@@ -594,42 +596,114 @@ const getAllOrder = asyncHandler(async (req, res) => {
 
 
 // Get Dashboard Data
-const getDashboardData = asyncHandler(async (req, res) => {
-  const registrations = await PetRegistration.find()
+// const getDashboardData = asyncHandler(async (req, res) => {
+//   const registrations = await PetRegistration.find()
   
-  const totalPets = registrations.length;
+//   const totalPets = registrations.length;
 
 
-  const uniqueUserIds = new Set(registrations.map((reg) => reg.userId?._id?.toString())).size;
+//   const uniqueUserIds = new Set(registrations.map((reg) => reg.userId?._id?.toString())).size;
 
-    const totalOrders = await Order.countDocuments();
+//     const totalOrders = await Order.countDocuments();
   
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+//     const startOfMonth = new Date();
+//     startOfMonth.setDate(1);
+//     startOfMonth.setHours(0, 0, 0, 0);
   
-    const endOfMonth = new Date();
-    endOfMonth.setMonth(endOfMonth.getMonth() + 1);
-    endOfMonth.setDate(0);
-    endOfMonth.setHours(23, 59, 59, 999);
+//     const endOfMonth = new Date();
+//     endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+//     endOfMonth.setDate(0);
+//     endOfMonth.setHours(23, 59, 59, 999);
   
    
-    const totalOrdersThisMonth = await Order.countDocuments({
-      order_date: {
-        $gte: startOfMonth,
-        $lte: endOfMonth,
+//     const totalOrdersThisMonth = await Order.countDocuments({
+//       order_date: {
+//         $gte: startOfMonth,
+//         $lte: endOfMonth,
+//       },
+//     });
+//   return res.status(200).json(
+//     new ApiResponse(200, {
+//       totalPets,
+//       totalUsers: uniqueUserIds,
+//       totalOrders,
+//       totalOrdersThisMonth,   
+//     },
+//     "Dashboard data fetched successfully")
+//   );
+// });
+
+const getDashboardData = asyncHandler(async (req, res) => {
+  // Get user_role ObjectIds
+  const [customerRole, trainerRole] = await Promise.all([
+    UserRole.findOne({ name: "customer" }),
+    UserRole.findOne({ name: "trainer" }),
+  ]);
+
+  if (!customerRole || !trainerRole) {
+    throw new ApiError(500, "Required user roles not found");
+  }
+
+  // Set date range for this month
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const endOfMonth = new Date();
+  endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+  endOfMonth.setDate(0);
+  endOfMonth.setHours(23, 59, 59, 999);
+
+  // Aggregated revenue from subscription bookings
+  const revenueResult = await SubscriptionBooking.aggregate([
+    {
+      $group: {
+        _id: null,
+        totalRevenue: { $sum: "$price" },
       },
-    });
-  return res.status(200).json(
-    new ApiResponse(200, {
-      totalPets,
-      totalUsers: uniqueUserIds,
-      totalOrders,
-      totalOrdersThisMonth,   
     },
-    "Dashboard data fetched successfully")
+  ]);
+
+  const totalRevenue = revenueResult[0]?.totalRevenue || 0;
+
+  // Get counts
+  const [
+    totalSubscriptionBooking,
+    totalSubscriptions,
+    totalPackages,
+    totalClasses,
+    totalCustomers,
+    totalActiveTrainers,
+    totalTrainer,
+  ] = await Promise.all([
+    SubscriptionBooking.countDocuments(),
+    Subscription.countDocuments(),
+    Package.countDocuments(),
+    Subscription.countDocuments({ isSingleClass: true }),
+    User.countDocuments({ user_role: customerRole._id }),
+    User.countDocuments({ user_role: trainerRole._id, isActive: true }),
+    User.countDocuments({ user_role: trainerRole._id }),
+  ]);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        totalSubscriptionBooking,
+        totalSubscriptions,
+        totalPackages,
+        totalClasses,
+        totalCustomers,
+        totalTrainer,
+        totalActiveTrainers,
+        totalRevenue,
+      },
+      "Dashboard data fetched successfully"
+    )
   );
 });
+
+
 
 
 // Get Pet Count by Type

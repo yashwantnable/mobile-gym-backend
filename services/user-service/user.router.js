@@ -42,7 +42,7 @@ router.route("/update-user-status/:userId").patch(verifyJWT, adminOnly, updateUs
 router.route("/create-user").post(verifyJWT, multer.uploadSingle("profile_image"), createUser);
 router.route("/get-all-user").get(verifyJWT,  getAllUser);
 router.route("/get-userby-id/:id").get(verifyJWT,  getUserById);
-router.route("/update-user/:id").put(verifyJWT, multer.uploadSingle("profile_image"), updateUser);
+router.route("/update-user").put(verifyJWT, multer.uploadSingle("profile_image"), updateUser);
 router.route("/delete-user/:id").delete(verifyJWT, adminOnly, deleteUser);
 
 // router.route("/get-all-services").get(getAllCustomerService);

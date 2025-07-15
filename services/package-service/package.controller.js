@@ -55,7 +55,6 @@ const createPackage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, newPackage, "Package created successfully"));
 });
 
-
 // Update Package
 const updatePackage = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -108,7 +107,6 @@ const updatePackage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, packageData, "Package updated successfully"));
 });
 
-
 // Get All Packages
 // Change route method to POST: router.post('/packages', getAllPackages)
 
@@ -137,7 +135,6 @@ const getAllPackages = asyncHandler(async (req, res) => {
   );
 });
 
-
 // Get Package by ID
 const getPackageById = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -149,9 +146,6 @@ const getPackageById = asyncHandler(async (req, res) => {
 
   return res.status(200).json(new ApiResponse(200, packageData, "Package fetched successfully"));
 });
-
-
-
 
 // Delete Package
 const deletePackage = asyncHandler(async (req, res) => {
