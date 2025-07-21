@@ -35,7 +35,7 @@ class NotificationService {
    * Send a notification to a groomer
    * @param {Object} options
    */
-  async sendToGroomer({ userId, title, message, type = "General" }) {
+  async sendToTrainer({ userId, title, message, type = "General" }) {
     return this.sendNotification({ userId, title, message, type });
   }
 }

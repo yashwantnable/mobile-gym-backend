@@ -17,10 +17,14 @@ import {
   filterAndSortSubscriptions,
   searchSubscriptions,
   getSubscriptionsByLocationId,
+  trainerCheckin,
+  trainerCheckOut,
   
 } from "./subscriptionService.controller.js";
 
 const router = Router();
+router.post("/subscription-check-in/:subscriptionId",verifyJWT,  trainerCheckin);
+router.post("/subscription-check-out/:subscriptionId",verifyJWT, trainerCheckOut);
 
 router.get("/get-subscriptions-by-loc-id/:locationId", getSubscriptionsByLocationId);
 router.post("/get-subscriptions-filter", filterAndSortSubscriptions);

@@ -23,6 +23,7 @@ import { OrderDetails } from "../../models/order.model.js";
 import { TimeSlot } from "../../models/timeslot.model.js";
 import { Subscription } from "../../models/subscription.model.js";
 import { Session } from "../../models/service.model.js";
+import { SubscriptionBooking } from "../../models/booking.model.js";
 
 
 //Update User status
@@ -249,7 +250,64 @@ const updateUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, updatedUser, "User updated successfully"));
 });
 
- 
+ const getFilteredCustomers = asyncHandler(async (req, res) => {
+  const {
+    country,
+    city,
+    subscriptionId,
+    categoryId,
+    isActive,
+    gender,
+  } = req.query;
+
+  // Get customer role
+  const customerRole = await UserRole.findOne({ name: "customer" });
+  if (!customerRole) {
+    throw new ApiError(500, "Customer role not found");
+  }
+
+  const baseQuery = { user_role: customerRole._id };
+
+  if (country) baseQuery.country = country;
+  if (city) baseQuery.city = city;
+  if (typeof isActive !== "undefined") baseQuery.isActive = isActive === "true";
+  if (gender) baseQuery.gender = gender;
+
+  // Get initial customers with basic filters
+  let users = await User.find(baseQuery)
+    .select("-otp -otp_time -password -refreshToken")
+    .populate("user_role country city");
+
+  // If no subscription/category filter, return now
+  if (!subscriptionId && !categoryId) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, users, "Filtered customers fetched successfully"));
+  }
+
+  // Continue filtering by subscription/category
+  const customerIds = users.map((u) => u._id);
+  const bookingQuery = { customer: { $in: customerIds } };
+  if (subscriptionId) bookingQuery.subscription = subscriptionId;
+
+  const bookings = await SubscriptionBooking.find(bookingQuery).populate("subscription");
+
+  const matchedCustomerIds = bookings
+    .filter((b) => {
+      if (categoryId && b.subscription?.category?.toString() !== categoryId) return false;
+      return true;
+    })
+    .map((b) => b.customer.toString());
+
+  const filteredUsers = users.filter((u) =>
+    matchedCustomerIds.includes(u._id.toString())
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, filteredUsers, "Filtered customers fetched successfully"));
+});
+
 
 //Get alla user
 const getAllUser = asyncHandler(async (req, res) => {
@@ -550,25 +608,39 @@ const deleteAddress = asyncHandler(async (req, res) => {
 
 const createSubscriptionRatingReview = asyncHandler(async (req, res) => {
   const { rating, review, subscriptionId } = req.body;
-
-  if (!subscriptionId || !rating) {
-    return res.status(400).json(new ApiError(400, "subscription Id and rating are required"));
-  }
-
   const userId = req.user?._id;
+
+  // 1. Validate input
+  if (!subscriptionId || typeof rating !== 'number') {
+    return res
+      .status(400)
+      .json(new ApiError(400, "subscriptionId and numeric rating are required"));
+  }
 
   const subId = new mongoose.Types.ObjectId(subscriptionId);
   const creatorId = new mongoose.Types.ObjectId(userId);
 
+  // 2. Check if subscription exists
+  const subscription = await Subscription.findById(subId);
+  if (!subscription) {
+    return res
+      .status(404)
+      .json(new ApiError(404, "Subscription not found"));
+  }
+
+  // 3. Prevent duplicate reviews by same user
   const existingReview = await SubscriptionRatingReview.findOne({
     subscriptionId: subId,
     created_by: creatorId,
   });
 
   if (existingReview) {
-    return res.status(400).json(new ApiError(400, "You have already reviewed this subscription"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "You have already reviewed this subscription"));
   }
 
+  // 4. Create review
   const reviewData = {
     subscriptionId: subId,
     rating,
@@ -578,10 +650,11 @@ const createSubscriptionRatingReview = asyncHandler(async (req, res) => {
 
   const createdReview = await SubscriptionRatingReview.create(reviewData);
 
-  return res
-    .status(201)
-    .json(new ApiResponse(201, createdReview, "Subscription review added successfully"));
+  return res.status(201).json(
+    new ApiResponse(201, createdReview, "Subscription review added successfully")
+  );
 });
+
 
 // Update SubService Rating and Review
 const updateSubscriptionRatingReview = asyncHandler(async (req, res) => {
@@ -624,7 +697,7 @@ const updateSubscriptionRatingReview = asyncHandler(async (req, res) => {
 // Get all SubService Rating and Reviews
 const getAllSubscriptionRatingReviews = asyncHandler(async (req, res) => {
   const { subscriptionId } = req.params;
-  console.log("subscriptionId:",subscriptionId);
+  // console.log("subscriptionId:",subscriptionId);
   
   if (!subscriptionId) {
     return res.status(400).json(new ApiError(400, "Subscription ID is required"));
@@ -785,8 +858,9 @@ const getAllTrainerReviews = asyncHandler(async (req, res) => {
   const reviews = await TrainerRatingReview.find({})
     .populate("trainer", "first_name profile_image") 
     // .populate("session", "name") 
-    .populate("created_by", "name") 
-    .populate("updated_by", "name") 
+    .populate("created_by", "first_name last_name")
+.populate("updated_by", "first_name last_name")
+
     .sort({ createdAt: -1 }); 
 
   if (!reviews || reviews.length === 0) {
@@ -822,24 +896,32 @@ const getAllTrainerReviews = asyncHandler(async (req, res) => {
 // });
 
 /**---------- */
-
 const getTrainerRatingReviewByUser = asyncHandler(async (req, res) => {
   const { trainerId } = req.params;
+  const loggedInUser = req.user;
 
   if (!trainerId) {
     return res.status(400).json(new ApiError(400, "Trainer ID is required"));
   }
 
+  // Match condition: all reviews by default, or only customer-specific
+  const matchCondition = {
+    trainer: new mongoose.Types.ObjectId(trainerId),
+  };
+
+  // If not admin, restrict to customer's own review
+  if (loggedInUser?.user_role?.name !== "admin") {
+    matchCondition.created_by = new mongoose.Types.ObjectId(loggedInUser._id);
+  }
+
   const reviews = await TrainerRatingReview.aggregate([
     {
-      $match: {
-        trainer: new mongoose.Types.ObjectId(trainerId),
-      },
+      $match: matchCondition,
     },
     {
       $lookup: {
         from: "users",
-        localField: "created_by", // fetch reviewer details
+        localField: "created_by",
         foreignField: "_id",
         as: "user",
       },
@@ -861,14 +943,43 @@ const getTrainerRatingReviewByUser = asyncHandler(async (req, res) => {
   ]);
 
   if (!reviews.length) {
+    const msg =
+      loggedInUser?.user_role?.name === "admin"
+        ? "No reviews found for this trainer."
+        : "You have not reviewed this trainer yet.";
+
+    return res.status(200).json(new ApiResponse(200, [], msg));
+  }
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      reviews,
+      loggedInUser?.user_role?.name === "admin"
+        ? "All reviews for the trainer fetched successfully."
+        : "Your review for the trainer fetched successfully."
+    )
+  );
+});
+
+
+// Get Reviews for Logged-in Trainer
+const getMyTrainerReviews = asyncHandler(async (req, res) => {
+  const trainerId = req.user._id;
+
+  const reviews = await TrainerRatingReview.find({ trainer: trainerId })
+    .populate("created_by", "first_name last_name profile_image")
+    .sort({ createdAt: -1 });
+
+  if (!reviews.length) {
     return res
       .status(200)
-      .json(new ApiResponse(200, [], "No reviews found for this trainer."));
+      .json(new ApiResponse(200, [], "You have not received any reviews yet."));
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, reviews, "Trainer reviews fetched successfully."));
+    .json(new ApiResponse(200, reviews, "Your trainer reviews fetched successfully."));
 });
 
 
@@ -1205,6 +1316,7 @@ const cancelOrderByCustomer = asyncHandler(async (req, res) => {
 });
 
 export {
+  getFilteredCustomers,
   updateUserStatus,
   createUser,
   updateUser,
@@ -1232,5 +1344,6 @@ export {
   getAdminDetails,
   getAllNotification,
   updateNotification,
-  updateAllNotification
+  updateAllNotification,
+  getMyTrainerReviews
 };

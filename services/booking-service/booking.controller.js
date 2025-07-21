@@ -11,6 +11,33 @@ import {
 } from "../../utils/email.helper.js";
 import NotificationService from "../../messaging_feature/services/NotificationService.js";
 import { Subscription } from "../../models/subscription.model.js";
+import { PromoCode } from "../../models/admin.model.js";
+
+
+const getMinutesFromTimeString = (timeStr) => {
+  if (!timeStr) return 0;
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  return hours * 60 + minutes;
+};
+
+const PROXIMITY_THRESHOLD_KM = 0.3;
+
+function calculateDistance(coord1, coord2) {
+  const [lon1, lat1] = coord1;
+  const [lon2, lat2] = coord2;
+  const toRad = (val) => (val * Math.PI) / 180;
+
+  const R = 6371; // Radius of Earth in km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // distance in km
+}
 
 //create manual booking
 const createManualBooking = asyncHandler(async (req, res) => {
@@ -503,37 +530,108 @@ const confirmTimeslotBooking = asyncHandler(async (req, res) => {
 
 //subscription booking
 // Create a new booking
+// const createSubscriptionBooking = asyncHandler(async (req, res) => {
+//   const { subscription, discountedAmount } = req.body;
+//   const customer = req.user._id;
+
+//   if (!subscription) {
+//     throw new ApiError(400, "Subscription ID is required");
+//   }
+
+//   // Fetch the subscription details
+//   const foundSubscription = await Subscription.findById(subscription);
+//   if (!foundSubscription) {
+//     throw new ApiError(404, "Subscription not found");
+//   }
+
+//   // Validate the subscription has a valid date range
+//   if (
+//     !Array.isArray(foundSubscription.date) ||
+//     foundSubscription.date.length < 2
+//   ) {
+//     throw new ApiError(400, "Subscription date range is invalid");
+//   }
+
+//   const expiryDate = new Date(foundSubscription.date[1]);
+//   const today = new Date();
+
+//   // Check if the subscription has expired
+//   if (expiryDate < today) {
+//     throw new ApiError(400, "This subscription has already expired");
+//   }
+
+//   // Check if the user has already booked this specific subscription
+//   const existingBooking = await SubscriptionBooking.findOne({
+//     customer,
+//     subscription,
+//   });
+
+//   if (existingBooking) {
+//     throw new ApiError(400, "You have already booked this subscription");
+//   }
+
+//   // Create the booking
+//   const newBooking = await SubscriptionBooking.create({
+//     subscription,
+//     customer,
+//     ...(discountedAmount && { discountedAmount }), // only include if sent
+//   });
+
+//   // Populate the subscription details in the response
+//   const populatedBooking = await SubscriptionBooking.findById(newBooking._id).populate("subscription");
+
+//   return res
+//     .status(201)
+//     .json(new ApiResponse(201, populatedBooking, "Subscription booked successfully"));
+// });
+
+//Create a new booking with notification email feature
 const createSubscriptionBooking = asyncHandler(async (req, res) => {
-  const { subscription } = req.body;
+  const { subscription, discountedAmount } = req.body;
   const customer = req.user._id;
 
   if (!subscription) {
     throw new ApiError(400, "Subscription ID is required");
   }
 
-  // Fetch the subscription details
-  const foundSubscription = await Subscription.findById(subscription);
+  // 🔍 1. Fetch the subscription with details
+  const foundSubscription = await Subscription.findById(subscription)
+    .populate("trainer", "_id first_name email")
+    .populate("categoryId", "name")
+    .populate("sessionType", "name");
+
   if (!foundSubscription) {
     throw new ApiError(404, "Subscription not found");
   }
 
-  // Validate the subscription has a valid date range
-  if (
-    !Array.isArray(foundSubscription.date) ||
-    foundSubscription.date.length < 2
-  ) {
-    throw new ApiError(400, "Subscription date range is invalid");
+  const isSingleClass = foundSubscription.isSingleClass;
+
+  // 📅 2. Handle date logic based on isSingleClass
+  let startDate, endDate;
+
+  if (isSingleClass) {
+    if (!foundSubscription.date || !Date.parse(foundSubscription.date)) {
+      throw new ApiError(400, "Invalid or missing date for single class");
+    }
+    startDate = endDate = new Date(foundSubscription.date);
+  } else {
+    if (!Array.isArray(foundSubscription.date) || foundSubscription.date.length !== 2) {
+      throw new ApiError(400, "Date range must be an array of two elements for non-single class");
+    }
+    startDate = new Date(foundSubscription.date[0]);
+    endDate = new Date(foundSubscription.date[1]);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      throw new ApiError(400, "One or both dates in range are invalid");
+    }
   }
 
-  const expiryDate = new Date(foundSubscription.date[1]);
-  const today = new Date();
-
-  // Check if the subscription has expired
-  if (expiryDate < today) {
+  const now = new Date();
+  if (endDate < now) {
     throw new ApiError(400, "This subscription has already expired");
   }
 
-  // Check if the user has already booked this specific subscription
+  // 🔁 3. Prevent duplicate booking
   const existingBooking = await SubscriptionBooking.findOne({
     customer,
     subscription,
@@ -543,20 +641,59 @@ const createSubscriptionBooking = asyncHandler(async (req, res) => {
     throw new ApiError(400, "You have already booked this subscription");
   }
 
-  // Create the booking
+  // 💾 4. Create the booking
   const newBooking = await SubscriptionBooking.create({
     subscription,
     customer,
+    ...(discountedAmount && { discountedAmount }),
   });
 
-  // Populate the subscription details in the response
+  // 🧠 5. Populate booking with details
   const populatedBooking = await SubscriptionBooking.findById(newBooking._id)
-    .populate("subscription");
+    .populate("subscription")
+    .populate("customer", "_id first_name email");
 
+  // 📧 6. Send confirmation email
+  await sendBookingConfirmationEmail({
+    to: populatedBooking.customer.email,
+    subject: "Subscription Booked Successfully ✅",
+    bookingData: {
+      customerName: populatedBooking.customer.first_name,
+      subscriptionName: foundSubscription.name,
+      category: foundSubscription.categoryId?.name,
+      sessionType: foundSubscription.sessionType?.name,
+      dateRange:
+        isSingleClass
+          ? startDate.toDateString()
+          : `${startDate.toDateString()} - ${endDate.toDateString()}`,
+      trainerName: foundSubscription.trainer?.first_name || "TBA",
+    },
+  });
+
+  // 🔔 7. Notify customer
+  await NotificationService.sendToCustomer({
+    userId: populatedBooking.customer._id,
+    title: "Subscription Booked 🎉",
+    message: `You've successfully booked the "${foundSubscription.name}" subscription. Valid from ${startDate.toDateString()} to ${endDate.toDateString()}.`,
+    type: "Subscription",
+  });
+
+  // 🔔 8. Notify trainer (optional)
+  if (foundSubscription.trainer?._id) {
+    await NotificationService.sendToTrainer({
+      userId: foundSubscription.trainer._id,
+      title: "New Subscription Booking 📅",
+      message: `A customer has booked your "${foundSubscription.name}" subscription.`,
+      type: "Subscription",
+    });
+  }
+
+  // ✅ 9. Respond
   return res
     .status(201)
     .json(new ApiResponse(201, populatedBooking, "Subscription booked successfully"));
 });
+
 
 // const updateSubscriptionBooking = asyncHandler(async (req, res) => {
 //   try {
@@ -697,7 +834,7 @@ const getSingleSubscriptionByBookingId = asyncHandler(async (req, res) => {
 const booking = await SubscriptionBooking.findById(bookingId)
   .populate({
     path: "subscription",
-    select: "_id media price", 
+    select: "_id media price name description startTime endTime", 
     populate: [
       { path: "categoryId", select: "cName" },
       { path: "sessionType", select: "sessionName" },
@@ -863,10 +1000,202 @@ const getAllSubscriptionCustomers = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, result, "Customers per subscription"));
 });
 
+const applyPromoCodeToSubscription = asyncHandler(async (req, res) => {
+  const { subscriptionId, promoCode } = req.body;
+  const customerId = req.user._id;
+
+  if (!subscriptionId || !promoCode) {
+    throw new ApiError(400, "Subscription ID and promo code are required");
+  }
+
+  // Fetch subscription
+  const subscription = await Subscription.findById(subscriptionId)
+    .populate("categoryId")
+    .populate("sessionType")
+    .populate("trainer")
+    .populate({
+      path: "Address",
+      populate: [
+        { path: "country", select: "name" },
+        { path: "city", select: "name" }
+      ]
+    });
+
+  if (!subscription) {
+    throw new ApiError(404, "Subscription not found");
+  }
+
+  // Validate date range
+  if (
+    !Array.isArray(subscription.date) ||
+    subscription.date.length < 2 ||
+    new Date(subscription.date[1]) < new Date()
+  ) {
+    throw new ApiError(400, "This subscription has already expired or has invalid date");
+  }
+
+  const price = parseFloat(subscription.price || 0);
+
+  // Validate promo code
+  const promo = await PromoCode.findOne({ code: promoCode, isActive: true });
+  if (!promo) {
+    throw new ApiError(404, "Promo code not found or inactive");
+  }
+
+  const now = new Date();
+
+  if (
+    promo.is_validation_date &&
+    (
+      (promo.startDate && now < promo.startDate) ||
+      (promo.endDate && now > promo.endDate)
+    )
+  ) {
+    throw new ApiError(400, "Promo code is expired or not yet active");
+  }
+
+  if (promo.usedBy.includes(customerId)) {
+    throw new ApiError(400, "You have already used this promo code");
+  }
+
+  const maxUses = parseFloat(promo.maxUses?.toString() || "0");
+  if (maxUses <= 0) {
+    throw new ApiError(400, "Promo code usage limit reached");
+  }
+
+  const minOrderAmount = parseFloat(promo.minOrderAmount?.toString() || "0");
+  if (price < minOrderAmount) {
+    throw new ApiError(400, `Minimum order amount ₹${minOrderAmount} required for this promo code`);
+  }
+
+  // ✅ Calculate discount
+  const discountValue = parseFloat(promo.discountValue?.toString() || "0");
+  let discountAmount = 0;
+
+  if (promo.discountType === "Percentage") {
+    discountAmount = (price * discountValue) / 100;
+
+    const maxDiscount = parseFloat(promo.maxDiscountAmount?.toString() || "0");
+    if (maxDiscount > 0 && discountAmount > maxDiscount) {
+      discountAmount = maxDiscount;
+    }
+  } else if (promo.discountType === "Fixed_Amount") {
+    discountAmount = Math.min(discountValue, price);
+  }
+
+  const finalPrice = price - discountAmount;
+
+  return res.status(200).json(
+    new ApiResponse(200, {
+      subscription,
+      promoCodeId: promo._id,
+      breakdown: {
+        originalPrice: price.toFixed(2),
+        discountAmount: discountAmount.toFixed(2),
+        finalPrice: finalPrice.toFixed(2),
+      },
+      promoDetails: {
+        code: promo.code,
+        discountType: promo.discountType,
+        discountValue: discountValue,
+        maxDiscountAmount: parseFloat(promo.maxDiscountAmount?.toString() || "0"),
+        termsAndConditions: promo.termsAndConditions,
+      }
+    }, "Promo code applied successfully")
+  );
+});
+
+const markSubscriptionAttendance = asyncHandler(async (req, res) => {
+  const customerId = req.user._id;
+  const { bookingId, subscriptionId, coordinates } = req.body; // [lng, lat]
+
+  if (!bookingId || !subscriptionId || !Array.isArray(coordinates)) {
+    throw new ApiError(400, "Missing bookingId, subscriptionId, or coordinates");
+  }
+
+  // 1️⃣ Find the booking and populate nested subscription + address
+  const booking = await SubscriptionBooking.findOne({
+    _id: bookingId,
+    customer: customerId,
+    subscription: subscriptionId,
+  }).populate({
+    path: "subscription",
+    populate: [
+      {
+        path: "Address", // ✅ lowercase, as defined in subscriptionSchema
+        select: "streetName landmark country city location",
+        populate: [
+          { path: "country", select: "name" },
+          { path: "city", select: "name" },
+        ],
+      },
+    ],
+  });
+
+  if (!booking) {
+    throw new ApiError(404, "Subscription booking not found");
+  }
+
+  // 2️⃣ Check if already attended
+  if (booking.attended) {
+    throw new ApiError(400, "You have already marked attendance");
+  }
+
+  const subscription = booking.subscription;
+
+  // 3️⃣ Validate Date and Time
+  const now = new Date();
+  const [startDateStr, endDateStr] = subscription.date || [];
+  const startDate = startDateStr ? new Date(startDateStr) : null;
+  const endDate = endDateStr ? new Date(endDateStr) : null;
+
+  if (!startDate || !endDate) {
+    throw new ApiError(400, "Subscription has invalid date range");
+  }
+
+  if (now < startDate || now > endDate) {
+    throw new ApiError(400, "This subscription is not valid today");
+  }
+
+  const nowTime = now.getHours() * 60 + now.getMinutes();
+  const startTime = getMinutesFromTimeString(subscription.startTime);
+  const endTime = getMinutesFromTimeString(subscription.endTime);
+
+  if (nowTime < startTime - 30 || nowTime > endTime + 30) {
+    throw new ApiError(
+      400,
+      "Attendance allowed only within 30 minutes before or after class time"
+    );
+  }
+
+  // 4️⃣ Distance Check
+  const classCoords = subscription?.Address?.location?.coordinates;
+  if (!classCoords || classCoords.length !== 2) {
+    throw new ApiError(400, "Class location coordinates not available");
+  }
+
+  const distance = calculateDistance(coordinates, classCoords);
+  if (distance > PROXIMITY_THRESHOLD_KM) {
+    throw new ApiError(
+      403,
+      `You are too far from the class location (Distance: ${distance.toFixed(2)} km)`
+    );
+  }
+
+  // 5️⃣ Mark Attendance
+  booking.attended = true;
+  booking.attendedAt = new Date();
+  await booking.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, booking, "Attendance marked successfully"));
+});
 
 
 
 export {
+  markSubscriptionAttendance,
   getExpiredBookingsByCustomer,
   getCustomersBySubscriptionId,
   getAllSubscriptionCustomers,
@@ -874,6 +1203,7 @@ export {
   getAllSubscriptionBookings,
   createSubscriptionBooking,
   // updateSubscriptionBooking,
+  applyPromoCodeToSubscription,
   cancelSubscriptionBooking,
   getCustomerBookings,
   getBookingById,

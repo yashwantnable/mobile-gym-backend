@@ -8,7 +8,25 @@ import {
 import { Subscription } from "../../models/subscription.model.js";
 import { SubscriptionRatingReview } from "../../models/ratingReview.model.js";
 import mongoose from "mongoose";
+import haversine from "haversine-distance";
 import { LocationMaster } from "../../models/master.model.js";
+
+const haversineDistance = (coords1, coords2) => {
+  const toRad = (x) => (x * Math.PI) / 180;
+  const [lon1, lat1] = coords1;
+  const [lon2, lat2] = coords2;
+
+  const R = 6371000; // meters
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(lat2);
+  const Δφ = toRad(lat2 - lat1);
+  const Δλ = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
 
 const enrichSubscriptionsWithReviews = async (subscriptions) => {
   const allReviews = await SubscriptionRatingReview.find({
@@ -61,7 +79,12 @@ const isFutureDateTime = (dateISO, timeStr) => {
   return true;
 };
 
-const validateDateAndTime = ({ parsedDate, startTime, endTime, isSingleClass }) => {
+const validateDateAndTime = ({
+  parsedDate,
+  startTime,
+  endTime,
+  isSingleClass,
+}) => {
   for (const d of parsedDate) {
     if (!isFutureDateTime(d, startTime)) {
       throw new ApiError(400, "Date/time must be in the future");
@@ -92,11 +115,11 @@ const createSubscription = asyncHandler(async (req, res) => {
     startTime,
     endTime,
     Address,
-    isSingleClass
+    isSingleClass,
   } = req.body;
 
-  isSingleClass = isSingleClass === 'true' || isSingleClass === true;
-  isActive = isActive === 'true' || isActive === true;
+  isSingleClass = isSingleClass === "true" || isSingleClass === true;
+  isActive = isActive === "true" || isActive === true;
 
   let parsedDate = date;
   if (typeof parsedDate === "string") {
@@ -108,14 +131,23 @@ const createSubscription = asyncHandler(async (req, res) => {
   }
 
   if (
-    !name || !categoryId || !sessionType || price === undefined || !parsedDate ||
-    !trainer || !startTime || !endTime || !Address
+    !name ||
+    !categoryId ||
+    !sessionType ||
+    price === undefined ||
+    !parsedDate ||
+    !trainer ||
+    !startTime ||
+    !endTime ||
+    !Address
   ) {
     return res.status(400).json(new ApiError(400, "Missing required fields"));
   }
 
   if (typeof isSingleClass !== "boolean") {
-    return res.status(400).json(new ApiError(400, "Invalid isSingleClass flag"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "Invalid isSingleClass flag"));
   }
 
   if (!mongoose.Types.ObjectId.isValid(Address)) {
@@ -127,17 +159,21 @@ const createSubscription = asyncHandler(async (req, res) => {
   }
 
   if (isSingleClass && parsedDate.length !== 1) {
-    return res.status(400).json(new ApiError(400, "Single class must have exactly one date"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "Single class must have exactly one date"));
   }
 
   if (!isSingleClass && parsedDate.length !== 2) {
-    return res.status(400).json(new ApiError(400, "Class duration must have exactly two dates"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "Class duration must have exactly two dates"));
   }
 
   validateDateAndTime({ parsedDate, startTime, endTime, isSingleClass });
 
   let mediaUrl = null;
-  const fileToProcess = req.file || (req.files?.media?.[0]);
+  const fileToProcess = req.file || req.files?.media?.[0];
 
   if (fileToProcess) {
     const uploadedMedia = await uploadOnCloudinary(fileToProcess.path);
@@ -164,7 +200,11 @@ const createSubscription = asyncHandler(async (req, res) => {
     created_by: req.user?._id,
   });
 
-  return res.status(201).json(new ApiResponse(201, newSubscription, "Service created successfully"));
+  return res
+    .status(201)
+    .json(
+      new ApiResponse(201, newSubscription, "Service created successfully")
+    );
 });
 
 const updateSubscription = asyncHandler(async (req, res) => {
@@ -185,7 +225,8 @@ const updateSubscription = asyncHandler(async (req, res) => {
     isSingleClass,
   } = req.body;
 
-  const parsedIsSingleClass = isSingleClass === "true" || isSingleClass === true;
+  const parsedIsSingleClass =
+    isSingleClass === "true" || isSingleClass === true;
 
   let parsedDate = date;
   if (typeof parsedDate === "string") {
@@ -197,8 +238,15 @@ const updateSubscription = asyncHandler(async (req, res) => {
   }
 
   if (
-    !name || !categoryId || !sessionType || !price || !parsedDate ||
-    !trainer || !startTime || !endTime || !Address ||
+    !name ||
+    !categoryId ||
+    !sessionType ||
+    !price ||
+    !parsedDate ||
+    !trainer ||
+    !startTime ||
+    !endTime ||
+    !Address ||
     typeof parsedIsSingleClass !== "boolean"
   ) {
     return res.status(400).json(new ApiError(400, "Missing required fields"));
@@ -213,14 +261,23 @@ const updateSubscription = asyncHandler(async (req, res) => {
   }
 
   if (parsedIsSingleClass && parsedDate.length !== 1) {
-    return res.status(400).json(new ApiError(400, "Single class must have exactly one date"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "Single class must have exactly one date"));
   }
 
   if (!parsedIsSingleClass && parsedDate.length !== 2) {
-    return res.status(400).json(new ApiError(400, "Class duration must have exactly two dates"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "Class duration must have exactly two dates"));
   }
 
-  validateDateAndTime({ parsedDate, startTime, endTime, isSingleClass: parsedIsSingleClass });
+  validateDateAndTime({
+    parsedDate,
+    startTime,
+    endTime,
+    isSingleClass: parsedIsSingleClass,
+  });
 
   const existing = await Subscription.findById(id);
   if (!existing) {
@@ -228,7 +285,7 @@ const updateSubscription = asyncHandler(async (req, res) => {
   }
 
   let mediaUrl = existing.media;
-  const fileToProcess = req.file || (req.files?.media?.[0]);
+  const fileToProcess = req.file || req.files?.media?.[0];
 
   if (fileToProcess) {
     if (existing.media) await deleteFromCloudinary(existing.media);
@@ -260,9 +317,168 @@ const updateSubscription = asyncHandler(async (req, res) => {
     { new: true }
   );
 
-  return res.status(200).json(new ApiResponse(200, updatedSubscription, "Service updated successfully"));
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, updatedSubscription, "Service updated successfully")
+    );
 });
 
+// trainer check in
+
+const trainerCheckin = asyncHandler(async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  console.log("req.params:",req.params);
+  console.log("req.body:",req.body);
+  console.log("req.user._id:",req.user._id);
+  
+  try {
+    const { subscriptionId } = req.params;
+    const { status, trainerLocation } = req.body;
+    const trainerId = req.user._id;
+    if (status !== "CHECKIN") {
+      return res.status(400).json({ message: "Status must be 'CHECKIN'" });
+    }
+
+    // Fetch subscription with Address populated
+    const subscription = await Subscription.findById(subscriptionId)
+      .populate({ path: "Address", select: "location" }) 
+      .session(session);
+    if (!subscription) {
+      return res.status(404).json({ message: "Subscription not found" });
+    }
+    // Ensure Address is populated
+    if (!subscription.Address || !subscription.Address.location?.coordinates) {
+      return res.status(400).json({ message: "Subscription address or location data is missing" });
+    }
+
+    if (subscription.trainerStatus === "CHECKED_IN") {
+      return res.status(400).json({ message: "Already checked in" });
+    }
+
+    // Check if current user is the assigned trainer
+    if (!subscription.trainer || subscription.trainer.toString() !== trainerId.toString()) {
+      return res.status(403).json({ message: "Unauthorized trainer" });
+    }
+
+    // Validate trainerLocation
+    if (
+      !trainerLocation ||
+      !Array.isArray(trainerLocation) ||
+      trainerLocation.length !== 2
+    ) {
+      return res.status(400).json({
+        message: "trainerLocation must be a [lng, lat] array",
+      });
+    }
+
+    const trainerPoint = { type: "Point", coordinates: trainerLocation };
+    const customerLocation = subscription.Address.location;
+const PROXIMITY_THRESHOLD = parseFloat(process.env.PROXIMITY_THRESHOLD) || 100;
+
+    // Proximity Check using $geoNear
+    const proximityCheck = await LocationMaster.aggregate([
+      {
+        $geoNear: {
+          near: trainerPoint,
+          distanceField: "distance",
+          maxDistance: PROXIMITY_THRESHOLD,
+          query: { _id: subscription.Address._id },
+          spherical: true,
+        },
+      },
+      { $limit: 1 },
+    ]).session(session);
+
+    // Fallback using haversine if geoNear fails
+    if (proximityCheck.length === 0) {
+      const distance = haversine(
+        { lat: trainerLocation[1], lon: trainerLocation[0] },
+        {
+          lat: customerLocation.coordinates[1],
+          lon: customerLocation.coordinates[0],
+        }
+      );
+      if (distance > PROXIMITY_THRESHOLD) {
+        return res.status(400).json({
+          message: `Too far. You are ${distance.toFixed(2)}m away. Must be within ${PROXIMITY_THRESHOLD}m.`,
+        });
+      }
+    }
+
+    // Update trainer's location & subscription status
+    await User.findByIdAndUpdate(
+      trainerId,
+      { location: trainerPoint, userStatus: "BUSY" },
+      { session }
+    );
+
+    subscription.trainerStatus = "CHECKED_IN";
+    subscription.checkInAt = new Date();
+    await subscription.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Notify the customer
+    try {
+      if (subscription.created_by) {
+        await sendNotification(subscription.created_by.toString(), {
+          title: "Trainer Checked In",
+          body: "Your trainer has arrived.",
+          data: {
+            subscriptionId: subscription._id.toString(),
+            status: "CHECKED_IN",
+          },
+        });
+      }
+    } catch (notifErr) {
+      console.error("Notification send failed:", notifErr);
+    }
+
+    return res.status(200).json({
+      message: "Successfully checked in",
+      status: "CHECKED_IN",
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Trainer check-in failed:", error);
+    return res.status(500).json({
+      message: "Check-in failed",
+      error: error.message,
+    });
+  }
+});
+
+
+const trainerCheckOut = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const subscription = await Subscription.findById(id);
+  if (!subscription) {
+    return res.status(404).json(new ApiError(404, "Subscription not found"));
+  }
+
+  const classEnd = new Date(subscription.date[0]);
+  const [endHour, endMin] = subscription.endTime.split(":").map(Number);
+  classEnd.setHours(endHour, endMin, 0, 0);
+
+  const now = new Date();
+  const earliestCheckout = new Date(classEnd.getTime() + 30 * 60 * 1000);
+
+  if (now < earliestCheckout) {
+    return res.status(400).json(new ApiError(400, "Check-out not allowed yet"));
+  }
+
+  subscription.trainerStatus = "COMPLETED";
+  await subscription.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Trainer checked out successfully"));
+});
 
 // Get all ServiceTypes
 // const getAllSubscription = asyncHandler(async (req, res) => {
@@ -416,19 +632,21 @@ const getAllSubscription = asyncHandler(async (req, res) => {
       };
     });
 
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        enrichedSubscriptions,
-        `All ${
-          isExpired === "true"
-            ? "expired"
-            : isExpired === "false"
-            ? "active"
-            : ""
-        } subscriptions fetched successfully with reviews and ratings`
-      )
-    );
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          enrichedSubscriptions,
+          `All ${
+            isExpired === "true"
+              ? "expired"
+              : isExpired === "false"
+              ? "active"
+              : ""
+          } subscriptions fetched successfully with reviews and ratings`
+        )
+      );
   } catch (error) {
     console.error("Error fetching subscriptions:", error);
     return res
@@ -437,24 +655,23 @@ const getAllSubscription = asyncHandler(async (req, res) => {
   }
 });
 
-
 // Get Subscription by ID
 const getSubscriptionById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const sub = await Subscription.findById(id)
     .populate([
-        { path: "categoryId" },
-        { path: "sessionType" },
-        { path: "trainer" },
-        {
-          path: "Address",
-          populate: [
-            { path: "city", select: "name" },
-            { path: "country", select: "name" },
-          ],
-        },
-      ])
-      .lean();
+      { path: "categoryId" },
+      { path: "sessionType" },
+      { path: "trainer" },
+      {
+        path: "Address",
+        populate: [
+          { path: "city", select: "name" },
+          { path: "country", select: "name" },
+        ],
+      },
+    ])
+    .lean();
 
   if (!sub) {
     return res.status(404).json(new ApiError(404, "Service not found"));
@@ -588,8 +805,14 @@ const getSubscriptionsByUserMiles = asyncHandler(async (req, res) => {
     const { coordinates, miles = 5 } = req.body;
 
     // 1. Validate coordinates
-    if (!coordinates || !Array.isArray(coordinates) || coordinates.length !== 2) {
-      return res.status(400).json({ message: "Valid coordinates [longitude, latitude] are required." });
+    if (
+      !coordinates ||
+      !Array.isArray(coordinates) ||
+      coordinates.length !== 2
+    ) {
+      return res.status(400).json({
+        message: "Valid coordinates [longitude, latitude] are required.",
+      });
     }
 
     const [lon, lat] = coordinates.map(Number);
@@ -608,12 +831,20 @@ const getSubscriptionsByUserMiles = asyncHandler(async (req, res) => {
       },
     }).select("_id");
 
-    const locationIds = nearbyLocations.map(loc => loc._id);
+    const locationIds = nearbyLocations.map((loc) => loc._id);
 
     if (locationIds.length === 0) {
       await session.commitTransaction();
       session.endSession();
-      return res.status(200).json(new ApiResponse(200, [], `No subscriptions found within ${miles} mile(s).`));
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            [],
+            `No subscriptions found within ${miles} mile(s).`
+          )
+        );
     }
 
     // 3. Step 2: Find subscriptions with matching Address IDs
@@ -630,10 +861,15 @@ const getSubscriptionsByUserMiles = asyncHandler(async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    return res.status(200).json(
-      new ApiResponse(200, enriched, `Subscriptions within ${miles} mile(s) from your location`)
-    );
-
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          enriched,
+          `Subscriptions within ${miles} mile(s) from your location`
+        )
+      );
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -646,16 +882,13 @@ const getSubscriptionsByUserMiles = asyncHandler(async (req, res) => {
   }
 });
 
-
 // controllers/subscription.controller.ts
 const getSubscriptionsByTrainerId = asyncHandler(async (req, res) => {
   const { trainerId } = req.params;
-  const { isExpired } = req.query;        // ←  ?isExpired=true / false / all
+  const { isExpired } = req.query; // ←  ?isExpired=true / false / all
 
   if (!trainerId) {
-    return res.status(400).json(
-      new ApiError(400, 'Trainer ID is required')
-    );
+    return res.status(400).json(new ApiError(400, "Trainer ID is required"));
   }
 
   // base filter
@@ -665,22 +898,22 @@ const getSubscriptionsByTrainerId = asyncHandler(async (req, res) => {
   // * ?isExpired=false  → only active
   // * ?isExpired=true   → only expired
   // * not provided      → all
-  if (isExpired === 'false') filter.isExpired = false;
-  else if (isExpired === 'true') filter.isExpired = true;
+  if (isExpired === "false") filter.isExpired = false;
+  else if (isExpired === "true") filter.isExpired = true;
 
   const subscriptions = await Subscription.find(filter)
     .populate([
-        { path: "categoryId" },
-        { path: "sessionType" },
-        { path: "trainer" },
-        {
-          path: "Address",
-          populate: [
-            { path: "city", select: "name" },
-            { path: "country", select: "name" },
-          ],
-        },
-      ])
+      { path: "categoryId" },
+      { path: "sessionType" },
+      { path: "trainer" },
+      {
+        path: "Address",
+        populate: [
+          { path: "city", select: "name" },
+          { path: "country", select: "name" },
+        ],
+      },
+    ])
     .sort({ createdAt: -1 })
     .lean();
 
@@ -688,7 +921,7 @@ const getSubscriptionsByTrainerId = asyncHandler(async (req, res) => {
     return res
       .status(200)
       .json(
-        new ApiResponse(200, [], 'No subscriptions found for this trainer')
+        new ApiResponse(200, [], "No subscriptions found for this trainer")
       );
   }
 
@@ -697,14 +930,9 @@ const getSubscriptionsByTrainerId = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(
-        200,
-        enriched,
-        'Subscriptions fetched by trainer ID'
-      )
+      new ApiResponse(200, enriched, "Subscriptions fetched by trainer ID")
     );
 });
-
 
 const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
   const {
@@ -744,60 +972,62 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
   const normalizeToArray = (input) =>
     Array.isArray(input) ? input : input ? [input] : [];
 
- const buildFilter = () => {
-  const filter = {};
+  const buildFilter = () => {
+    const filter = {};
 
-  if (isExpired !== undefined) {
-    if (Array.isArray(isExpired)) {
-      filter.isExpired = { $in: isExpired.map((v) => v === "true" || v === true) };
-    } else {
-      filter.isExpired = isExpired === "true" || isExpired === true;
+    if (isExpired !== undefined) {
+      if (Array.isArray(isExpired)) {
+        filter.isExpired = {
+          $in: isExpired.map((v) => v === "true" || v === true),
+        };
+      } else {
+        filter.isExpired = isExpired === "true" || isExpired === true;
+      }
     }
-  }
 
-  if (isSingleClass !== undefined) {
-    if (Array.isArray(isSingleClass)) {
-      filter.isSingleClass = {
-        $in: isSingleClass.map((v) => v === "true" || v === true),
-      };
-    } else {
-      filter.isSingleClass = isSingleClass === "true" || isSingleClass === true;
+    if (isSingleClass !== undefined) {
+      if (Array.isArray(isSingleClass)) {
+        filter.isSingleClass = {
+          $in: isSingleClass.map((v) => v === "true" || v === true),
+        };
+      } else {
+        filter.isSingleClass =
+          isSingleClass === "true" || isSingleClass === true;
+      }
     }
-  }
 
-  if (minPrice || maxPrice) {
-    filter.price = {};
-    if (minPrice) filter.price.$gte = Number(minPrice);
-    if (maxPrice) filter.price.$lte = Number(maxPrice);
-  }
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = Number(minPrice);
+      if (maxPrice) filter.price.$lte = Number(maxPrice);
+    }
 
-  if (categoryId) {
-    const values = normalizeToArray(categoryId);
-    if (values.length === 1) filter.categoryId = values[0];
-    else filter.categoryId = { $in: values };
-  }
+    if (categoryId) {
+      const values = normalizeToArray(categoryId);
+      if (values.length === 1) filter.categoryId = values[0];
+      else filter.categoryId = { $in: values };
+    }
 
-  if (sessionTypeId) {
-    const values = normalizeToArray(sessionTypeId);
-    if (values.length === 1) filter.sessionType = values[0];
-    else filter.sessionType = { $in: values };
-  }
+    if (sessionTypeId) {
+      const values = normalizeToArray(sessionTypeId);
+      if (values.length === 1) filter.sessionType = values[0];
+      else filter.sessionType = { $in: values };
+    }
 
-  if (trainerId) {
-    const values = normalizeToArray(trainerId);
-    if (values.length === 1) filter.trainer = values[0];
-    else filter.trainer = { $in: values };
-  }
+    if (trainerId) {
+      const values = normalizeToArray(trainerId);
+      if (values.length === 1) filter.trainer = values[0];
+      else filter.trainer = { $in: values };
+    }
 
-  if (location) {
-    const values = normalizeToArray(location);
-    if (values.length === 1) filter.Address = values[0];
-    else filter.Address = { $in: values };
-  }
+    if (location) {
+      const values = normalizeToArray(location);
+      if (values.length === 1) filter.Address = values[0];
+      else filter.Address = { $in: values };
+    }
 
-  return filter;
-};
- 
+    return filter;
+  };
 
   let filter = buildFilter();
   const skip = (Number(page) - 1) * Number(limit);
@@ -988,7 +1218,9 @@ const searchSubscriptions = asyncHandler(async (req, res) => {
     const reviews = reviewMap[sub._id.toString()] || [];
     const totalReviews = reviews.length;
     const averageRating = totalReviews
-      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(2)
+      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(
+          2
+        )
       : "0.00";
 
     return {
@@ -999,13 +1231,11 @@ const searchSubscriptions = asyncHandler(async (req, res) => {
     };
   });
 
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      enriched,
-      "Subscriptions fetched with full details"
-    )
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, enriched, "Subscriptions fetched with full details")
+    );
 });
 
 const getSubscriptionsByLocationId = asyncHandler(async (req, res) => {
@@ -1033,24 +1263,25 @@ const getSubscriptionsByLocationId = asyncHandler(async (req, res) => {
     .lean();
 
   if (!subscriptions.length) {
-    return res.status(200).json(
-      new ApiResponse(200, [], "No subscriptions found for this location")
-    );
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, [], "No subscriptions found for this location")
+      );
   }
 
   const enriched = await enrichSubscriptionsWithReviews(subscriptions);
 
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      enriched,
-      "Subscriptions fetched by Location ID"
-    )
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, enriched, "Subscriptions fetched by Location ID")
+    );
 });
 
-
 export {
+  trainerCheckin,
+  trainerCheckOut,
   getSubscriptionsByLocationId,
   searchSubscriptions,
   filterAndSortSubscriptions,

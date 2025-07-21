@@ -44,6 +44,7 @@ router.route("/update-promo-code/:id").put(verifyJWT,multer.uploadSingle("image"
 router.route("/get-promo-code-by-id/:id").get(verifyJWT, getPromoCodeById)
 router.route("/get-all-promo-codes").post(verifyJWT, getAllPromoCodes)
 router.route("/delete-promo-code/:id").delete(verifyJWT, deletePromoCode)
+
 router.route("/get-all-subservice-rating-review/:subServiceId").get(verifyJWT,adminOnly,getAllSubscriptionRatingReviews);
 router.route("/get-all-orders").get(verifyJWT,adminOnly,getAllOrder);
 

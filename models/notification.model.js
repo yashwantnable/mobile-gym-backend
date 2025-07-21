@@ -13,11 +13,11 @@ const notificationSchema = new Schema({
     type: String,
     required: true,
   },
-  type: {
-    type: String,
-    enum: ["Order", "Booking", "Cancel", "General"],
-    default: "General",
-  },
+ type: {
+  type: String,
+  enum: ["Order", "Booking", "Cancel", "General", "Subscription"],
+  required: true,
+},
   isRead: {
     type: Boolean,
     default: false,

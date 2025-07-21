@@ -33,13 +33,13 @@ const subscriptionSchema = new Schema(
   required: true,
 },
 
-//  trainerStatus: {
-//       type: String,
-//       enum: ["PENDING", "CHECKED_IN", "REJECTED"],
-//       default: "PENDING",
-//     },
+ trainerStatus: {
+      type: String,
+      enum: ["PENDING", "CHECKED_IN", "REJECTED"],
+      default: "PENDING",
+    },
     // rejectReason: { type: String, default: null },
-    // checkInAt: { type: Date, default: null },
+    checkInAt: { type: Date, default: null },
   
     price: { type: Number, required: true },
     media: { type: String, default: null },

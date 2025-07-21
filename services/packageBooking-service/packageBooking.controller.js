@@ -6,6 +6,27 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 
+
+const PROXIMITY_THRESHOLD_KM = 0.3;
+
+function calculateDistance(coord1, coord2) {
+  const [lon1, lat1] = coord1;
+  const [lon2, lat2] = coord2;
+  const toRad = (val) => (val * Math.PI) / 180;
+
+  const R = 6371; // Radius of Earth in km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // distance in km
+}
+
+
 function calculateExpiration(firstActivatedAt, duration) {
   const start = new Date(firstActivatedAt);
   switch (duration) {
@@ -60,19 +81,21 @@ const getAllPackageBookings = asyncHandler(async (req, res) => {
 const joinClassWithPackage = asyncHandler(async (req, res) => {
   const { subscriptionId, packageId } = req.body;
   const customer = req.user._id;
-  console.log({subscriptionId, packageId});
-  
+
   if (!subscriptionId || !packageId) {
     throw new ApiError(400, "Subscription ID and Package ID are required");
   }
 
-  // Fetch subscription (populate only trainer, avoid location if it's not a ref)
-  const subscription = await Subscription.findById(subscriptionId).populate("trainer");
+  // 1️⃣ Fetch the subscription with necessary details
+  const subscription = await Subscription.findById(subscriptionId)
+    .populate("trainer", "first_name email") // limit fields
+    .populate("Address"); // location should be a ref
+
   if (!subscription) {
     throw new ApiError(404, "Subscription not found");
   }
 
-  // Find the specific package booking
+  // 2️⃣ Fetch the user's package booking
   const booking = await PackageBooking.findOne({
     _id: packageId,
     customer,
@@ -82,59 +105,68 @@ const joinClassWithPackage = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Package booking not found");
   }
 
-  // Check for expiration and activate if necessary
+  // 3️⃣ Check for expiration
+  const now = new Date();
   if (!booking.activate) {
-    const now = new Date();
-
     if (booking.expiredAt && now > booking.expiredAt) {
       booking.expired = true;
       await booking.save();
       throw new ApiError(400, "Cannot activate an expired package");
     }
 
-    // Deactivate any other active bookings
+    // Deactivate other active packages
     await PackageBooking.updateMany(
       { customer, _id: { $ne: booking._id } },
       { $set: { activate: false } }
     );
 
-    // Set first activation time and calculate expiration if not already set
     if (!booking.firstActivatedAt) {
       booking.firstActivatedAt = now;
-
       const duration = booking.package?.duration || "monthly";
-      booking.expiredAt = calculateExpiration(now, duration); // Use your existing helper
+      booking.expiredAt = calculateExpiration(now, duration);
     }
 
     booking.activate = true;
     await booking.save();
   }
 
-  // Prevent duplicate joining
+  // 4️⃣ Check for duplicate class join
   const alreadyJoined = booking.joinClasses.some(
-    j => j.classId?.toString() === subscription._id.toString()
+    (j) => j.classId?.toString() === subscription._id.toString()
   );
 
   if (alreadyJoined) {
     throw new ApiError(400, "This subscription is already joined with this package");
   }
 
-  // Join new class
-  booking.joinClasses.push({
-    classId: subscription._id,
-    className: subscription.name,
-    classDetails: {
-      name: subscription.name,
-      description: subscription.description,
-      trainer: subscription.trainer?._id,
-      location: subscription.location || null, // handled without populate
-      date: subscription.date,
-      startTime: subscription.startTime,
-      endTime: subscription.endTime,
+  // 5️⃣ Push class to joinClasses
+ booking.joinClasses.push({
+  classId: subscription._id,
+  className: subscription.name,
+  classDetails: {
+    name: subscription.name,
+    description: subscription.description,
+    trainer: {
+      _id: subscription.trainer?._id || null,
+      name: subscription.trainer?.first_name || null,
+      email: subscription.trainer?.email || null,
     },
-  });
+    location: {
+      _id: subscription.Address?._id || null,
+      streetName: subscription.Address?.streetName || null,
+      landmark: subscription.Address?.landmark || null,
+      coordinates: subscription.Address?.location?.coordinates || [],
+      city: subscription.Address?.city || null,
+      country: subscription.Address?.country || null,
+    },
+    date: subscription.date[0], // assuming first date
+    startTime: subscription.startTime,
+    endTime: subscription.endTime,
+  },
+});
 
-  // Finish package if limit reached
+
+  // 6️⃣ Finish package if limit is reached
   if (booking.joinClasses.length >= booking.package.numberOfClasses) {
     booking.isFinished = true;
   }
@@ -144,6 +176,95 @@ const joinClassWithPackage = asyncHandler(async (req, res) => {
   return res.status(200).json(
     new ApiResponse(200, booking, "Subscription joined and package activated successfully")
   );
+});
+
+const markClassAttendance = asyncHandler(async (req, res) => {
+  const customerId = req.user._id;
+  const { bookingId, classId, coordinates } = req.body;
+
+  if (!bookingId || !classId || !Array.isArray(coordinates)) {
+    throw new ApiError(400, "Missing bookingId, classId, or coordinates");
+  }
+
+  // 1️⃣ Fetch the relevant booking
+  const booking = await PackageBooking.findOne({
+    _id: bookingId,
+    customer: customerId,
+    "joinClasses.classId": classId,
+  });
+
+  if (!booking) {
+    throw new ApiError(404, "No such joined class in your booking");
+  }
+
+  // 2️⃣ Locate the specific joined class
+  const joinedClass = booking.joinClasses.find(
+    (j) => j.classId.toString() === classId
+  );
+
+  if (!joinedClass) {
+    throw new ApiError(404, "Class not found in your joined classes");
+  }
+
+  if (joinedClass.attended) {
+    throw new ApiError(400, "You have already marked attendance for this class");
+  }
+
+  const classCoords = joinedClass.classDetails?.location?.coordinates;
+  if (!classCoords || classCoords.length !== 2) {
+    throw new ApiError(400, "Class location coordinates not available");
+  }
+
+  // 3️⃣ Check proximity
+  const distance = calculateDistance(coordinates, classCoords); // returns distance in km
+  if (distance > PROXIMITY_THRESHOLD_KM) {
+    throw new ApiError(
+      403,
+      `You are too far from the class location (Distance: ${distance.toFixed(2)} km)`
+    );
+  }
+
+  // 4️⃣ Check date validity (must be today)
+  const classDate = new Date(joinedClass.classDetails?.date);
+  const today = new Date();
+
+  const isSameDate =
+    classDate.getDate() === today.getDate() &&
+    classDate.getMonth() === today.getMonth() &&
+    classDate.getFullYear() === today.getFullYear();
+
+  if (!isSameDate) {
+    throw new ApiError(400, "You can only mark attendance on the class date");
+  }
+
+  // 5️⃣ Check time window (30 mins before start to 30 mins after end)
+  const [startHour, startMin] = joinedClass.classDetails?.startTime?.split(":").map(Number);
+  const [endHour, endMin] = joinedClass.classDetails?.endTime?.split(":").map(Number);
+
+  const classStart = new Date(classDate);
+  classStart.setHours(startHour, startMin - 30, 0); // 30 min before start
+
+  const classEnd = new Date(classDate);
+  classEnd.setHours(endHour, endMin + 30, 0); // 30 min after end
+
+  const now = new Date();
+
+  if (now < classStart || now > classEnd) {
+    throw new ApiError(
+      400,
+      "You can only mark attendance within 30 minutes before or after class time"
+    );
+  }
+
+  // 6️⃣ Mark attendance
+  joinedClass.attended = true;
+  joinedClass.attendedAt = new Date();
+
+  await booking.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, joinedClass, "Attendance marked successfully"));
 });
 
 
@@ -183,7 +304,6 @@ const activatePackage = asyncHandler(async (req, res) => {
     new ApiResponse(200, booking, "Package activated successfully")
   );
 });
-
 
 
 const getPackageBookingById = asyncHandler(async (req, res) => {
@@ -300,14 +420,17 @@ const getMyJoinedClasses = asyncHandler(async (req, res) => {
       ]
     });
 
-  const joinedClasses = bookings.flatMap(b =>
-    b.joinClasses.map(j => ({
-      bookingId: b._id,
-      classId:   j.classId?._id,
-      className: j.className || j.classId?.subscriptionName || j.classId?.name,
-      details:   j.classDetails || j.classId,
-    }))
-  );
+ const joinedClasses = bookings.flatMap(b =>
+  b.joinClasses.map(j => ({
+    bookingId: b._id,
+    classId:   j.classId?._id,
+    className: j.className || j.classId?.subscriptionName || j.classId?.name,
+    details:   j.classDetails || j.classId,
+    attended:  j.attended || false, 
+    attendedAt: j.attendedAt || null, 
+  }))
+);
+
 
   return res
     .status(200)
@@ -324,6 +447,7 @@ export{
     joinClassWithPackage,
     activatePackage,
     getPackageBookingById,
-    getPackageBookingsByUserId
+    getPackageBookingsByUserId,
+    markClassAttendance
 }
 

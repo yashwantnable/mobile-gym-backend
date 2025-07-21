@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+
 const joinClassSchema = new mongoose.Schema({
   classId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -10,18 +11,28 @@ const joinClassSchema = new mongoose.Schema({
     name: String,
     description: String,
     trainer: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Trainer"
+      _id: { type: mongoose.Schema.Types.ObjectId, ref: "Trainer" },
+      name: String,
+      email: String,
     },
     location: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Location"
+      _id: { type: mongoose.Schema.Types.ObjectId, ref: "Location" },
+      streetName: String,
+      landmark: String,
+      coordinates: [Number], // [lng, lat]
+      city: { type: mongoose.Schema.Types.ObjectId, ref: "City" },
+      country: { type: mongoose.Schema.Types.ObjectId, ref: "Country" },
     },
     date: Date,
     startTime: String,
-    endTime: String
-  }
+    endTime: String,
+  },
+
+  // ✅ Attendance Fields
+  attended: { type: Boolean, default: false },
+  attendedAt: { type: Date, default: null },
 }, { _id: false });
+
 
 const packageBookingSchema = new mongoose.Schema(
   {

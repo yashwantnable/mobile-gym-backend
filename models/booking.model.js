@@ -97,7 +97,10 @@ const subscriptionBookingSchema = new Schema(
       ref: "Subscription",
       required: true,
     },
-    // DiscountedPrice: { type: Number, required: true },
+    discountedAmount: {
+      type: Number,
+      default: null, // Optional — can be used only when promo applied
+    },
     // promoCode: {
     //       type: Schema.Types.ObjectId,
     //       ref: "PromoCode",

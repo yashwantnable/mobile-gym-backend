@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "../../middlewares/multer.middleware.js"
 import { verifyJWT } from "../../middlewares/auth.middleware.js";
-import { adminOnly } from "../../middlewares/role.middleware.js";
+import { adminOnly, trainerOnly } from "../../middlewares/role.middleware.js";
 import {customerOnly} from "../../middlewares/role.middleware.js"
 import{
     updateUserStatus,
@@ -32,12 +32,15 @@ import{
     getAllSubscriptionRatingReviews,
     getSubscriptionRatingReviewByUser,
     getAllSubscriptionsRatingReviews,
+    getFilteredCustomers,
+    getMyTrainerReviews,
 } from "./user.controller.js"
 
 import {getAllArticals, getArticalById} from "../../services/admin-service/admin.controller.js"
 
 const router = Router();
 
+router.route("/get-customers-filtered").get(verifyJWT, getFilteredCustomers);
 router.route("/update-user-status/:userId").patch(verifyJWT, adminOnly, updateUserStatus)
 router.route("/create-user").post(verifyJWT, multer.uploadSingle("profile_image"), createUser);
 router.route("/get-all-user").get(verifyJWT,  getAllUser);
@@ -67,6 +70,8 @@ router.route("/create-trainer-rating-review").post(verifyJWT,customerOnly,create
 router.route("/update-trainer-review/:trainerId").put(verifyJWT,customerOnly, updateTrainerRatingReview);
 router.route("/get-trainer-review/:trainerId").get(verifyJWT, getTrainerRatingReviewByUser);
 router.route("/get-all-trainer-reviews").get(verifyJWT, getAllTrainerReviews);
+router.get('/trainer/my-reviews', verifyJWT, trainerOnly, getMyTrainerReviews);
+
 
 
 router.route("/cart-total-price-calculate").post(verifyJWT,customerOnly,calculateCartTotal);

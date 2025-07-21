@@ -22,6 +22,7 @@ import admin from 'firebase-admin';
 const firestore = admin.firestore();
 import nodemailer from "nodemailer";
 import bcrypt from "bcrypt";
+import { TrainerRatingReview } from "../../models/trainerRatingReview.model.js";
 
 // Create trainer
 const createTrainer = asyncHandler(async (req, res) => {
@@ -109,8 +110,8 @@ const createTrainer = asyncHandler(async (req, res) => {
 });
 
 
-// Get All trainers
 const getAllTrainer = asyncHandler(async (req, res) => {
+  // 1. Fetch all users with role "trainer"
   const users = await User.find()
     .populate("user_role country city")
     .select("-password -refreshToken -otp -otp_time");
@@ -119,8 +120,45 @@ const getAllTrainer = asyncHandler(async (req, res) => {
     (user) => user.user_role && user.user_role.name === "trainer"
   );
 
-  res.status(200).json(new ApiResponse(200, trainers, "trainers fetched successfully"));
+  // 2. Get average rating and total reviews for all trainers
+  const ratingsData = await TrainerRatingReview.aggregate([
+    {
+      $group: {
+        _id: "$trainer",
+        averageRating: { $avg: "$rating" },
+        totalReviews: { $sum: 1 },
+      },
+    },
+  ]);
+
+  // 3. Convert ratingsData to a map for faster lookup
+  const ratingsMap = {};
+  ratingsData.forEach((data) => {
+    ratingsMap[data._id.toString()] = {
+      averageRating: data.averageRating.toFixed(1), // round to 1 decimal
+      totalReviews: data.totalReviews,
+    };
+  });
+
+  // 4. Merge rating info with trainers
+  const trainersWithRatings = trainers.map((trainer) => {
+    const ratingInfo = ratingsMap[trainer._id.toString()] || {
+      averageRating: 0,
+      totalReviews: 0,
+    };
+    return {
+      ...trainer.toObject(),
+      averageRating: ratingInfo.averageRating,
+      totalReviews: ratingInfo.totalReviews,
+    };
+  });
+
+  // 5. Send response
+  res
+    .status(200)
+    .json(new ApiResponse(200, trainersWithRatings, "Trainers fetched successfully"));
 });
+
 
 
 // Get trainer By ID
@@ -2004,6 +2042,30 @@ const trainerCheckin = asyncHandler(async (req, res) => {
       error: error.message 
     });
   }
+});
+const trainerCheckOut = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const subscription = await Subscription.findById(id);
+  if (!subscription) {
+    return res.status(404).json(new ApiError(404, "Subscription not found"));
+  }
+
+  const classEnd = new Date(subscription.date[0]);
+  const [endHour, endMin] = subscription.endTime.split(":").map(Number);
+  classEnd.setHours(endHour, endMin, 0, 0);
+
+  const now = new Date();
+  const earliestCheckout = new Date(classEnd.getTime() + 30 * 60 * 1000);
+
+  if (now < earliestCheckout) {
+    return res.status(400).json(new ApiError(400, "Check-out not allowed yet"));
+  }
+
+  subscription.trainerStatus = "COMPLETED";
+  await subscription.save();
+
+  return res.status(200).json(new ApiResponse(200, null, "Trainer checked out successfully"));
 });
 
 // const initiateCheckout = asyncHandler(async (req, res) => {
