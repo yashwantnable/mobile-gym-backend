@@ -1315,7 +1315,97 @@ const cancelOrderByCustomer = asyncHandler(async (req, res) => {
   });
 });
 
+const sendClassRemindersService = async () => {
+  const now = new Date();
+  const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+
+  const upcomingBookings = await SubscriptionBooking.find({ status: "active" })
+    .populate({
+      path: "subscription",
+      match: {
+        startTime: { $gte: now.toISOString(), $lte: oneHourLater.toISOString() },
+      },
+      populate: [
+        { path: "trainer", select: "first_name email" },
+        { path: "categoryId", select: "name" },
+        { path: "sessionType", select: "name" },
+      ],
+    })
+    .populate("customer", "_id first_name email");
+
+  const notifications = [];
+
+  const formatTime = (date) =>
+    new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  for (const booking of upcomingBookings) {
+    const sub = booking.subscription;
+    const customer = booking.customer;
+
+    if (!sub || !sub.startTime || !customer || !customer._id) continue;
+
+    const timeFormatted = formatTime(sub.startTime);
+
+    // Customer notification
+    const customerTitle = "Class Reminder ⏰";
+    const customerMessage = `Your class "${sub.name}" starts at ${timeFormatted}. Please be ready.`;
+
+    notifications.push({
+      userId: customer._id,
+      title: customerTitle,
+      message: customerMessage,
+      type: "class-reminder",
+      isRead: false,
+    });
+
+    io.to(customer._id.toString()).emit("notification:new", {
+      title: customerTitle,
+      message: customerMessage,
+    });
+
+    // Trainer notification
+    if (sub.trainer && sub.trainer._id) {
+      const trainerTitle = "Trainer Class Reminder ⏰";
+      const trainerMessage = `Class "${sub.name}" is starting at ${timeFormatted}.`;
+
+      notifications.push({
+        userId: sub.trainer._id,
+        title: trainerTitle,
+        message: trainerMessage,
+        type: "class-reminder",
+        isRead: false,
+      });
+
+      io.to(sub.trainer._id.toString()).emit("reminder:trainer", {
+        title: trainerTitle,
+        message: trainerMessage,
+      });
+    }
+
+    // Optional logging
+    console.log(`🔔 Reminder sent for booking: ${sub.name}`);
+  }
+
+  if (notifications.length > 0) {
+    await Notification.insertMany(notifications);
+    console.log(`✅ ${notifications.length} notifications inserted.`);
+  }
+
+  return notifications.length;
+};
+
+const sendUpcomingClassReminders = asyncHandler(async (req, res) => {
+  const count = await sendClassRemindersService();
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { count }, "Upcoming class reminders sent"));
+});
+
+
+
 export {
+  sendClassRemindersService,
+  sendUpcomingClassReminders,
   getFilteredCustomers,
   updateUserStatus,
   createUser,

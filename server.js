@@ -2,6 +2,7 @@ import "dotenv/config";
 import http from "http";
 import app, { socketService } from "./app.js";
 import connectDB from "./config/db.config.js";
+import "./cron/reminderCron.js";
 
 const port = process.env.PORT || 5000;
 const httpServer = http.createServer(app);

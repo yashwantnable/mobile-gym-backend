@@ -19,6 +19,7 @@ import {
   getSubscriptionsByLocationId,
   trainerCheckin,
   trainerCheckOut,
+  getTrainerAssignedSubscriptions
   
 } from "./subscriptionService.controller.js";
 
@@ -28,6 +29,7 @@ router.post("/subscription-check-out/:subscriptionId",verifyJWT, trainerCheckOut
 
 router.get("/get-subscriptions-by-loc-id/:locationId", getSubscriptionsByLocationId);
 router.post("/get-subscriptions-filter", filterAndSortSubscriptions);
+router.post("/get-trainer-Assigned-Subscriptions-filters",verifyJWT, getTrainerAssignedSubscriptions);
 router.get("/search-subscriptions", searchSubscriptions);
 
 

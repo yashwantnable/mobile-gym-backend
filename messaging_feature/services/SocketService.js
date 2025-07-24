@@ -60,8 +60,10 @@ class SocketService {
   }
 
   emitToUser(userId, event, payload) {
-    this._io.to(userId.toString()).emit(event, payload);
-  }
+  console.log(`📣 Emitting '${event}' to room '${userId}'`);
+  this._io.to(userId.toString()).emit(event, payload);
+}
+
 }
 
 export default SocketService;

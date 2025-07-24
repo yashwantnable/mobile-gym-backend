@@ -86,16 +86,16 @@ const joinClassWithPackage = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Subscription ID and Package ID are required");
   }
 
-  // 1️⃣ Fetch the subscription with necessary details
+  // 1️⃣ Fetch subscription details
   const subscription = await Subscription.findById(subscriptionId)
-    .populate("trainer", "first_name email") // limit fields
-    .populate("Address"); // location should be a ref
+    .populate("trainer", "first_name email")
+    .populate("Address");
 
   if (!subscription) {
     throw new ApiError(404, "Subscription not found");
   }
 
-  // 2️⃣ Fetch the user's package booking
+  // 2️⃣ Fetch package booking
   const booking = await PackageBooking.findOne({
     _id: packageId,
     customer,
@@ -105,8 +105,9 @@ const joinClassWithPackage = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Package booking not found");
   }
 
-  // 3️⃣ Check for expiration
+  // 3️⃣ Expiration check and activation
   const now = new Date();
+
   if (!booking.activate) {
     if (booking.expiredAt && now > booking.expiredAt) {
       booking.expired = true;
@@ -120,6 +121,7 @@ const joinClassWithPackage = asyncHandler(async (req, res) => {
       { $set: { activate: false } }
     );
 
+    // Set expiration time on first activation
     if (!booking.firstActivatedAt) {
       booking.firstActivatedAt = now;
       const duration = booking.package?.duration || "monthly";
@@ -130,53 +132,59 @@ const joinClassWithPackage = asyncHandler(async (req, res) => {
     await booking.save();
   }
 
-  // 4️⃣ Check for duplicate class join
+  // 4️⃣ Check for duplicates
   const alreadyJoined = booking.joinClasses.some(
     (j) => j.classId?.toString() === subscription._id.toString()
   );
-
   if (alreadyJoined) {
     throw new ApiError(400, "This subscription is already joined with this package");
   }
 
-  // 5️⃣ Push class to joinClasses
- booking.joinClasses.push({
-  classId: subscription._id,
-  className: subscription.name,
-  classDetails: {
-    name: subscription.name,
-    description: subscription.description,
-    trainer: {
-      _id: subscription.trainer?._id || null,
-      name: subscription.trainer?.first_name || null,
-      email: subscription.trainer?.email || null,
-    },
-    location: {
-      _id: subscription.Address?._id || null,
-      streetName: subscription.Address?.streetName || null,
-      landmark: subscription.Address?.landmark || null,
-      coordinates: subscription.Address?.location?.coordinates || [],
-      city: subscription.Address?.city || null,
-      country: subscription.Address?.country || null,
-    },
-    date: subscription.date[0], // assuming first date
-    startTime: subscription.startTime,
-    endTime: subscription.endTime,
-  },
-});
+  // 5️⃣ Check if user exceeded class limit
+  if (booking.joinClasses.length >= booking.package.numberOfClasses) {
+    booking.isFinished = true;
+    await booking.save();
+    throw new ApiError(400, "Package class limit reached");
+  }
 
+  // 6️⃣ Add class to joinClasses
+  booking.joinClasses.push({
+    classId: subscription._id,
+    className: subscription.name,
+    classDetails: {
+      name: subscription.name,
+      description: subscription.description,
+      trainer: {
+        _id: subscription.trainer?._id || null,
+        name: subscription.trainer?.first_name || null,
+        email: subscription.trainer?.email || null,
+      },
+      location: {
+        _id: subscription.Address?._id || null,
+        streetName: subscription.Address?.streetName || null,
+        landmark: subscription.Address?.landmark || null,
+        coordinates: subscription.Address?.location?.coordinates || [],
+        city: subscription.Address?.city || null,
+        country: subscription.Address?.country || null,
+      },
+      date: subscription.date?.[0] || null,
+      startTime: subscription.startTime,
+      endTime: subscription.endTime,
+    },
+  });
 
-  // 6️⃣ Finish package if limit is reached
+  // 7️⃣ Final check: if limit is now reached
   if (booking.joinClasses.length >= booking.package.numberOfClasses) {
     booking.isFinished = true;
   }
 
   await booking.save();
 
-  return res.status(200).json(
-    new ApiResponse(200, booking, "Subscription joined and package activated successfully")
-  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, booking, "Subscription joined and package activated successfully"));
 });
+ 
 
 const markClassAttendance = asyncHandler(async (req, res) => {
   const customerId = req.user._id;
@@ -400,8 +408,12 @@ const getMyJoinedClasses = asyncHandler(async (req, res) => {
 
   const bookings = await PackageBooking.find(
     { customer, "joinClasses.0": { $exists: true } },
-    { joinClasses: 1 }                                // project joined classes only
+    { joinClasses: 1, package: 1 } 
   )
+    .populate({
+      path: "package",
+      select: "name", 
+    })
     .populate({
       path: "joinClasses.classId",
       select: "subscriptionName name price startTime endTime date",
@@ -420,22 +432,26 @@ const getMyJoinedClasses = asyncHandler(async (req, res) => {
       ]
     });
 
- const joinedClasses = bookings.flatMap(b =>
-  b.joinClasses.map(j => ({
-    bookingId: b._id,
-    classId:   j.classId?._id,
-    className: j.className || j.classId?.subscriptionName || j.classId?.name,
-    details:   j.classDetails || j.classId,
-    attended:  j.attended || false, 
-    attendedAt: j.attendedAt || null, 
-  }))
-);
-
+  const joinedClasses = bookings.flatMap(b =>
+    b.joinClasses.map(j => ({
+      bookingId: b._id,
+      packageId: b.package?._id || null,       // ✅ fixed
+      packageName: b.package?.name || "N/A",   // ✅ fixed
+      classId: j.classId?._id,
+      className: j.className || j.classId?.subscriptionName || j.classId?.name,
+      details: j.classDetails || j.classId,
+      attended: j.attended || false,
+      attendedAt: j.attendedAt || null,
+    }))
+  );
 
   return res
     .status(200)
     .json(new ApiResponse(200, joinedClasses, "Joined classes fetched"));
 });
+
+
+
 
 
 

@@ -10,6 +10,7 @@ import { SubscriptionRatingReview } from "../../models/ratingReview.model.js";
 import mongoose from "mongoose";
 import haversine from "haversine-distance";
 import { LocationMaster } from "../../models/master.model.js";
+import { SubscriptionBooking } from "../../models/booking.model.js";
 
 const haversineDistance = (coords1, coords2) => {
   const toRad = (x) => (x * Math.PI) / 180;
@@ -225,8 +226,7 @@ const updateSubscription = asyncHandler(async (req, res) => {
     isSingleClass,
   } = req.body;
 
-  const parsedIsSingleClass =
-    isSingleClass === "true" || isSingleClass === true;
+  const parsedIsSingleClass = isSingleClass === "true" || isSingleClass === true;
 
   let parsedDate = date;
   if (typeof parsedDate === "string") {
@@ -317,12 +317,48 @@ const updateSubscription = asyncHandler(async (req, res) => {
     { new: true }
   );
 
+  // Notify all subscribed customers
+  const subscribedUsers = await SubscriptionBooking.find({
+    subscriptionId: id,
+    status: "active",
+  }).populate("customer");
+
+  for (const sub of subscribedUsers) {
+    await NotificationService.sendToCustomer({
+      userId: sub.customer._id,
+      title: "Subscription Updated 🔄",
+      message: `The subscription "${updatedSubscription.name}" has been updated. Please review the new schedule.`,
+      type: "Subscription",
+    });
+
+    // Optional: Real-time socket emit
+    io.to(sub.customer._id.toString()).emit("notification:new", {
+      title: "Subscription Updated 🔄",
+      message: `The subscription "${updatedSubscription.name}" has been updated.`,
+    });
+  }
+
+  // Notify assigned trainer (if any)
+  if (updatedSubscription.trainer) {
+    await NotificationService.sendToTrainer({
+      userId: updatedSubscription.trainer,
+      title: "Subscription Updated ✏️",
+      message: `Your subscription "${updatedSubscription.name}" has been modified.`,
+      type: "Subscription",
+    });
+
+    // Optional: Real-time socket emit
+    io.to(updatedSubscription.trainer.toString()).emit("notification:new", {
+      title: "Subscription Updated ✏️",
+      message: `Your subscription "${updatedSubscription.name}" has been modified.`,
+    });
+  }
+
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, updatedSubscription, "Service updated successfully")
-    );
+    .json(new ApiResponse(200, updatedSubscription, "Service updated successfully"));
 });
+
 
 // trainer check in
 
@@ -947,7 +983,7 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
     isSingleClass,
     location,
     page = 1,
-    limit = 10,
+    limit = 100,
   } = req.body || {};
 
   const now = new Date();
@@ -1279,7 +1315,175 @@ const getSubscriptionsByLocationId = asyncHandler(async (req, res) => {
     );
 });
 
+const getTrainerAssignedSubscriptions = asyncHandler(async (req, res) => {
+  const trainerId = req.user._id;
+
+  const {
+    sortBy = "relevance",
+    order = "desc",
+    minPrice,
+    maxPrice,
+    categoryId,
+    sessionTypeId,
+    location,
+    isExpired,
+    isSingleClass,
+    page = 1,
+    limit = 100,
+  } = req.body || {};
+
+  const now = new Date();
+
+  // Auto-mark expired subscriptions
+  const allSubs = await Subscription.find({ trainer: trainerId }, { _id: 1, date: 1 });
+  const expiredIds = allSubs
+    .filter((s) => {
+      const dates = s.date || [];
+      const lastDate = dates.length === 2 ? dates[1] : dates[0];
+      return lastDate && new Date(lastDate) < now;
+    })
+    .map((s) => s._id);
+
+  if (expiredIds.length) {
+    await Subscription.updateMany(
+      { _id: { $in: expiredIds } },
+      { $set: { isExpired: true } }
+    );
+  }
+
+  const normalize = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+
+  const filter = { trainer: trainerId };
+
+  if (isExpired !== undefined) {
+    if (Array.isArray(isExpired)) {
+      filter.isExpired = {
+        $in: isExpired.map((v) => v === "true" || v === true),
+      };
+    } else {
+      filter.isExpired = isExpired === "true" || isExpired === true;
+    }
+  }
+
+  if (isSingleClass !== undefined) {
+    if (Array.isArray(isSingleClass)) {
+      filter.isSingleClass = {
+        $in: isSingleClass.map((v) => v === "true" || v === true),
+      };
+    } else {
+      filter.isSingleClass = isSingleClass === "true" || isSingleClass === true;
+    }
+  }
+
+  if (minPrice || maxPrice) {
+    filter.price = {};
+    if (minPrice) filter.price.$gte = Number(minPrice);
+    if (maxPrice) filter.price.$lte = Number(maxPrice);
+  }
+
+  const categories = normalize(categoryId);
+  if (categories.length === 1) filter.categoryId = categories[0];
+  else if (categories.length > 1) filter.categoryId = { $in: categories };
+
+  const sessionTypes = normalize(sessionTypeId);
+  if (sessionTypes.length === 1) filter.sessionType = sessionTypes[0];
+  else if (sessionTypes.length > 1) filter.sessionType = { $in: sessionTypes };
+
+  const locations = normalize(location);
+  if (locations.length === 1) filter.Address = locations[0];
+  else if (locations.length > 1) filter.Address = { $in: locations };
+
+  const skip = (Number(page) - 1) * Number(limit);
+
+  let subscriptions = await Subscription.find(filter)
+    .populate("categoryId Address sessionType trainer")
+    .skip(skip)
+    .limit(Number(limit))
+    .lean();
+
+  // Fallback: retry without `isExpired` filter if no result
+  if (
+    subscriptions.length === 0 &&
+    (isExpired === false || isExpired === "false")
+  ) {
+    delete filter.isExpired;
+    filter.isExpired = { $ne: true };
+
+    subscriptions = await Subscription.find(filter)
+      .populate("categoryId Address sessionType trainer")
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
+  }
+
+  const subscriptionIds = subscriptions.map((s) => s._id);
+  const reviews = await SubscriptionRatingReview.find({
+    subscriptionId: { $in: subscriptionIds },
+  }).lean();
+
+  const reviewMap = {};
+  for (const r of reviews) {
+    const id = r.subscriptionId.toString();
+    if (!reviewMap[id]) reviewMap[id] = [];
+    reviewMap[id].push(r);
+  }
+
+  subscriptions = subscriptions.map((sub) => {
+    const subReviews = reviewMap[sub._id.toString()] || [];
+    const totalReviews = subReviews.length;
+    const avgRating = totalReviews
+      ? subReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
+      : 0;
+
+    return {
+      ...sub,
+      reviews: subReviews,
+      totalReviews,
+      averageRating: Number(avgRating.toFixed(2)),
+    };
+  });
+
+  // Sort logic
+  if (sortBy === "price") {
+    subscriptions.sort((a, b) =>
+      order === "asc" ? a.price - b.price : b.price - a.price
+    );
+  } else if (sortBy === "rating") {
+    subscriptions.sort((a, b) =>
+      order === "asc"
+        ? a.averageRating - b.averageRating
+        : b.averageRating - a.averageRating
+    );
+  } else {
+    subscriptions.sort((a, b) =>
+      order === "asc"
+        ? new Date(a.createdAt) - new Date(b.createdAt)
+        : new Date(b.createdAt) - new Date(a.createdAt)
+    );
+  }
+
+  const totalCount = await Subscription.countDocuments(filter);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        subscriptions,
+        pagination: {
+          total: totalCount,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(totalCount / limit),
+        },
+      },
+      "Trainer subscriptions fetched with filters"
+    )
+  );
+});
+
+
 export {
+  getTrainerAssignedSubscriptions,
   trainerCheckin,
   trainerCheckOut,
   getSubscriptionsByLocationId,
