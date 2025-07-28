@@ -119,6 +119,8 @@ const createSubscription = asyncHandler(async (req, res) => {
     isSingleClass,
   } = req.body;
 
+  const customer = req.user._id;
+
   isSingleClass = isSingleClass === "true" || isSingleClass === true;
   isActive = isActive === "true" || isActive === true;
 
@@ -173,6 +175,22 @@ const createSubscription = asyncHandler(async (req, res) => {
 
   validateDateAndTime({ parsedDate, startTime, endTime, isSingleClass });
 
+  // 🔒 Check if this class was already joined through a package
+  const alreadyJoinedViaPackage = await PackageBooking.findOne({
+    customer,
+    "joinClasses.className": name,
+  });
+
+  if (alreadyJoinedViaPackage) {
+    return res.status(400).json(
+      new ApiError(
+        400,
+        "You have already joined this class through a package"
+      )
+    );
+  }
+
+  // 🔽 Upload media
   let mediaUrl = null;
   const fileToProcess = req.file || req.files?.media?.[0];
 
@@ -207,6 +225,7 @@ const createSubscription = asyncHandler(async (req, res) => {
       new ApiResponse(201, newSubscription, "Service created successfully")
     );
 });
+
 
 const updateSubscription = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -1481,8 +1500,90 @@ const getTrainerAssignedSubscriptions = asyncHandler(async (req, res) => {
   );
 });
 
+const getTrainerClassStats = asyncHandler(async (req, res) => {
+  const trainerId = req.user._id;
+  const now = new Date();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split('T')[0];
+
+  // Fetch all classes
+  const allClasses = await Subscription.find({ trainer: trainerId }).lean();
+
+  // Update expired classes if needed
+  const expiredIds = allClasses
+    .filter((s) => {
+      const dates = s.date || [];
+      const lastDate = dates.length === 2 ? dates[1] : dates[0];
+      return lastDate && new Date(lastDate) < now;
+    })
+    .map((s) => s._id);
+
+  if (expiredIds.length > 0) {
+    await Subscription.updateMany(
+      { _id: { $in: expiredIds } },
+      { $set: { isExpired: true } }
+    );
+  }
+
+  // Re-fetch after updating
+  const updatedClasses = await Subscription.find({ trainer: trainerId }).lean();
+
+  // Initialize counters
+  let totalClasses = 0;
+  let totalSingleClasses = 0;
+  let totalExpired = 0;
+  let totalNonExpired = 0;
+  let totalToday = 0;
+  let totalUpcoming = 0;
+
+  for (const cls of updatedClasses) {
+    totalClasses++;
+
+    if (cls.isSingleClass) totalSingleClasses++;
+    if (cls.isExpired) totalExpired++;
+    else totalNonExpired++;
+
+    const [startDateStr, endDateStr] = cls.date || [];
+    if (!startDateStr) continue;
+
+    const startDate = new Date(startDateStr);
+    const endDate = endDateStr ? new Date(endDateStr) : startDate;
+
+    // Strip time to compare only date part
+    const format = (d) => d.toISOString().split("T")[0];
+    const startStr = format(startDate);
+    const endStr = format(endDate);
+
+    if (todayStr >= startStr && todayStr <= endStr) {
+      totalToday++;
+    } else if (todayStr < startStr) {
+      totalUpcoming++;
+    }
+  }
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        totalClasses,
+        totalSingleClasses,
+        totalExpired,
+        totalNonExpired,
+        totalToday,
+        totalUpcoming,
+      },
+      "Trainer class stats fetched successfully"
+    )
+  );
+});
+
+
+
 
 export {
+  getTrainerClassStats,
   getTrainerAssignedSubscriptions,
   trainerCheckin,
   trainerCheckOut,

@@ -95,6 +95,19 @@ const joinClassWithPackage = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Subscription not found");
   }
 
+  // 🔒 Check if this subscription was already purchased directly
+  const alreadyPurchased = await CustomerSubscription.findOne({
+    customer,
+    subscription: subscriptionId,
+  });
+
+  if (alreadyPurchased) {
+    throw new ApiError(
+      400,
+      "You have already purchased this subscription directly"
+    );
+  }
+
   // 2️⃣ Fetch package booking
   const booking = await PackageBooking.findOne({
     _id: packageId,
@@ -115,13 +128,11 @@ const joinClassWithPackage = asyncHandler(async (req, res) => {
       throw new ApiError(400, "Cannot activate an expired package");
     }
 
-    // Deactivate other active packages
     await PackageBooking.updateMany(
       { customer, _id: { $ne: booking._id } },
       { $set: { activate: false } }
     );
 
-    // Set expiration time on first activation
     if (!booking.firstActivatedAt) {
       booking.firstActivatedAt = now;
       const duration = booking.package?.duration || "monthly";
@@ -132,7 +143,7 @@ const joinClassWithPackage = asyncHandler(async (req, res) => {
     await booking.save();
   }
 
-  // 4️⃣ Check for duplicates
+  // 4️⃣ Check for duplicates in joined classes
   const alreadyJoined = booking.joinClasses.some(
     (j) => j.classId?.toString() === subscription._id.toString()
   );
@@ -173,17 +184,17 @@ const joinClassWithPackage = asyncHandler(async (req, res) => {
     },
   });
 
-  // 7️⃣ Final check: if limit is now reached
   if (booking.joinClasses.length >= booking.package.numberOfClasses) {
     booking.isFinished = true;
   }
 
   await booking.save();
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, booking, "Subscription joined and package activated successfully"));
+  return res.status(200).json(
+    new ApiResponse(200, booking, "Subscription joined and package activated successfully")
+  );
 });
+
  
 
 const markClassAttendance = asyncHandler(async (req, res) => {
