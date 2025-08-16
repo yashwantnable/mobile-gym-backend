@@ -18,6 +18,14 @@ const subscriptionSchema = new Schema(
       type: String,
       default: "",
     },
+    reply: {
+      type: String,
+      default: null,
+    },
+    is_hidden: {
+      type: Boolean,
+      default: false,
+    },
     created_by: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -33,6 +41,7 @@ const subscriptionSchema = new Schema(
     timestamps: true,
   }
 );
+
 
 // Function to update average rating
 async function updateSubscriptionAverageRating(RatingReview, subscriptionId) {

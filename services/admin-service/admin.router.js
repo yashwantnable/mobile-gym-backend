@@ -29,7 +29,7 @@ import {
       getAvailableGroomersforBooking
 } from "./admin.controller.js"
 
-import {getAllSubscriptionRatingReviews} from "../../services/user-service/user.controller.js"
+import {getAllSubscriptionRatingReviewsById} from "../../services/user-service/user.controller.js"
 
 const router = Router()
 
@@ -45,7 +45,7 @@ router.route("/get-promo-code-by-id/:id").get(verifyJWT, getPromoCodeById)
 router.route("/get-all-promo-codes").post(verifyJWT, getAllPromoCodes)
 router.route("/delete-promo-code/:id").delete(verifyJWT, deletePromoCode)
 
-router.route("/get-all-subservice-rating-review/:subServiceId").get(verifyJWT,adminOnly,getAllSubscriptionRatingReviews);
+router.route("/get-all-subservice-rating-review/:subServiceId").get(verifyJWT,adminOnly,getAllSubscriptionRatingReviewsById);
 router.route("/get-all-orders").get(verifyJWT,adminOnly,getAllOrder);
 
 

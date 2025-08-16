@@ -88,7 +88,7 @@ router
   .route("/create-session")
   .post(verifyJWT, adminOnly, multer.uploadSingle("image"), createSession);
 router.route("/get-all-sessions").get(getAllSessions);
-router.route("/get-session-by-id/:id").get( getSessionById);
+router.route("/get-session-by-id/:id").get(getSessionById);
 router.get("/get-session-by-category-id/:categoryId",  getSessionsByCategoryId);
 
 router

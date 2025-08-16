@@ -667,46 +667,56 @@ const getDashboardData = asyncHandler(async (req, res) => {
   const totalRevenue = revenueResult[0]?.totalRevenue || 0;
 
   // Get counts
- const [
-  totalSubscriptionBooking,
-  totalSubscriptions,
-  totalPackages,
-  totalClasses,
-  totalActiveClasses,
-  totalCustomers,
-  totalActiveTrainers,
-  totalTrainer,
-] = await Promise.all([
-  SubscriptionBooking.countDocuments(),
-  Subscription.countDocuments(),
-  Package.countDocuments(),
-  Subscription.countDocuments({ isSingleClass: true }),                  // totalClasses
-  Subscription.countDocuments({ isSingleClass: true, isActive: true }), // totalActiveClasses
-  User.countDocuments({ user_role: customerRole._id }),
-  User.countDocuments({ user_role: trainerRole._id, isActive: true }),
-  User.countDocuments({ user_role: trainerRole._id }),
-]);
-
+  const [
+    totalSubscriptionBooking,
+    totalSubscriptions,
+    totalClasses,
+    totalActiveClasses,
+    totalCustomers,
+    totalActiveTrainers,
+    totalTrainer,
+    totalPackages,
+    dailyPackages,
+    weeklyPackages,
+    monthlyPackages,
+  ] = await Promise.all([
+    SubscriptionBooking.countDocuments(),
+    Subscription.countDocuments(),
+    Subscription.countDocuments({ isSingleClass: true }),                  // totalClasses
+    Subscription.countDocuments({ isSingleClass: true, isActive: true }), // totalActiveClasses
+    User.countDocuments({ user_role: customerRole._id }),
+    User.countDocuments({ user_role: trainerRole._id, isActive: true }),
+    User.countDocuments({ user_role: trainerRole._id }),
+    Package.countDocuments(),
+    Package.countDocuments({ duration: "daily" }),
+    Package.countDocuments({ duration: "weekly" }),
+    Package.countDocuments({ duration: "monthly" }),
+  ]);
 
   return res.status(200).json(
-  new ApiResponse(
-    200,
-    {
-      totalSubscriptionBooking,
-      totalSubscriptions,
-      totalPackages,
-      totalClasses,
-      totalActiveClasses,
-      totalCustomers,
-      totalTrainer,
-      totalActiveTrainers,
-      totalRevenue,
-    },
-    "Dashboard data fetched successfully"
-  )
-);
-
+    new ApiResponse(
+      200,
+      {
+        totalSubscriptionBooking,
+        totalSubscriptions,
+        totalClasses,
+        totalActiveClasses,
+        totalCustomers,
+        totalTrainer,
+        totalActiveTrainers,
+        totalRevenue,
+        packages: {
+          totalPackages,
+          dailyPackages,
+          weeklyPackages,
+          monthlyPackages,
+        },
+      },
+      "Dashboard data fetched successfully"
+    )
+  );
 });
+
 
 
 

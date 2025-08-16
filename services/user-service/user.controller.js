@@ -1,5 +1,5 @@
 import { User } from "../../models/user.model.js";
-import { UserRole } from "../../models/userRole.model.js"
+import { UserRole } from "../../models/userRole.model.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
@@ -10,21 +10,20 @@ import {
 } from "../../utils/cloudinary.js";
 
 // import {ServiceType} from "../../models/service.model.js"
-import {SubServiceType} from "../../models/subService.model.js"
+import { SubServiceType } from "../../models/subService.model.js";
 // import {Address} from "../../models/user.model.js"
-import {SubscriptionRatingReview} from "../../models/ratingReview.model.js"
-import { TrainerRatingReview } from "../../models/trainerRatingReview.model.js"
-import {TaxMaster, ExtraCharge} from "../../models/master.model.js"
-import {Cart} from "../../models/cart.model.js"
-import {PromoCode} from "../../models/admin.model.js"
+import { SubscriptionRatingReview } from "../../models/ratingReview.model.js";
+import { TrainerRatingReview } from "../../models/trainerRatingReview.model.js";
+import { TaxMaster, ExtraCharge } from "../../models/master.model.js";
+import { Cart } from "../../models/cart.model.js";
+import { PromoCode } from "../../models/admin.model.js";
 import mongoose from "mongoose";
-import {Notification} from "../../models/notification.model.js"
+import { Notification } from "../../models/notification.model.js";
 import { OrderDetails } from "../../models/order.model.js";
 import { TimeSlot } from "../../models/timeslot.model.js";
 import { Subscription } from "../../models/subscription.model.js";
 import { Session } from "../../models/service.model.js";
 import { SubscriptionBooking } from "../../models/booking.model.js";
-
 
 //Update User status
 const updateUserStatus = asyncHandler(async (req, res) => {
@@ -54,7 +53,6 @@ const updateUserStatus = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "user status updated successfully"));
 });
 
-
 //Create User
 const createUser = asyncHandler(async (req, res) => {
   console.log("user register Req.body", req.body);
@@ -83,7 +81,6 @@ const createUser = asyncHandler(async (req, res) => {
     phone_number,
     password,
     user_role,
-
   };
 
   const missingFields = Object.keys(requiredFields).filter(
@@ -114,14 +111,16 @@ const createUser = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "User Role Not found"));
   }
 
-    let profile_image = null;
-    if (imageLocalPath) {
-      const uploadedImage = await uploadOnCloudinary(imageLocalPath);
-      if (!uploadedImage?.url) {
-        return res.status(400).json(new ApiError(400, "Error while uploading image"));
-      }
-      profile_image = uploadedImage.url;
+  let profile_image = null;
+  if (imageLocalPath) {
+    const uploadedImage = await uploadOnCloudinary(imageLocalPath);
+    if (!uploadedImage?.url) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Error while uploading image"));
     }
+    profile_image = uploadedImage.url;
+  }
 
   const user = await User.create({
     uid: req.user?.uid || "",
@@ -160,17 +159,20 @@ const createUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, createdUser, "User registered Successfully"));
 });
 
-
 //update User
 const updateUser = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
 
   if (!userId) {
-    return res.status(400).json(new ApiError(400, "User ID not available from auth"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "User ID not available from auth"));
   }
 
   if (Object.keys(req.body).length === 0 && !req.file) {
-    return res.status(400).json(new ApiError(400, "No data provided to update"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "No data provided to update"));
   }
 
   const {
@@ -215,9 +217,7 @@ const updateUser = asyncHandler(async (req, res) => {
 
       profile_image = uploadResult.url;
     } catch (error) {
-      return res
-        .status(500)
-        .json(new ApiError(500, "Image handling failed"));
+      return res.status(500).json(new ApiError(500, "Image handling failed"));
     }
   }
 
@@ -250,7 +250,7 @@ const updateUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, updatedUser, "User updated successfully"));
 });
 
- const getFilteredCustomers = asyncHandler(async (req, res) => {
+const getFilteredCustomers = asyncHandler(async (req, res) => {
   const {
     country,
     city,
@@ -258,6 +258,8 @@ const updateUser = asyncHandler(async (req, res) => {
     categoryId,
     isActive,
     gender,
+    ageGroup,
+    isSingleClass,
   } = req.query;
 
   // Get customer role
@@ -273,28 +275,57 @@ const updateUser = asyncHandler(async (req, res) => {
   if (typeof isActive !== "undefined") baseQuery.isActive = isActive === "true";
   if (gender) baseQuery.gender = gender;
 
-  // Get initial customers with basic filters
+  // Handle ageGroup filter (assuming age is stored in user as 'dob' field)
+  if (ageGroup) {
+    const ageRanges = {
+      under18: [0, 17],
+      "18to25": [18, 25],
+      "26to35": [26, 35],
+      "36to45": [36, 45],
+      "46plus": [46, 150],
+    };
+
+    const [minAge, maxAge] = ageRanges[ageGroup] || [];
+    if (minAge !== undefined && maxAge !== undefined) {
+      baseQuery.age = { $gte: minAge, $lte: maxAge };
+    }
+  }
+
+  // Get initial users with basic filters
   let users = await User.find(baseQuery)
     .select("-otp -otp_time -password -refreshToken")
     .populate("user_role country city");
 
-  // If no subscription/category filter, return now
-  if (!subscriptionId && !categoryId) {
+  // If no subscription/category/singleClass filter, return now
+  if (!subscriptionId && !categoryId && typeof isSingleClass === "undefined") {
     return res
       .status(200)
-      .json(new ApiResponse(200, users, "Filtered customers fetched successfully"));
+      .json(
+        new ApiResponse(200, users, "Filtered customers fetched successfully")
+      );
   }
 
-  // Continue filtering by subscription/category
+  // Further filter by Subscription/Category/SingleClass
   const customerIds = users.map((u) => u._id);
   const bookingQuery = { customer: { $in: customerIds } };
   if (subscriptionId) bookingQuery.subscription = subscriptionId;
 
-  const bookings = await SubscriptionBooking.find(bookingQuery).populate("subscription");
+  const bookings = await SubscriptionBooking.find(bookingQuery).populate({
+    path: "subscription",
+    populate: {
+      path: "category",
+    },
+  });
 
   const matchedCustomerIds = bookings
     .filter((b) => {
-      if (categoryId && b.subscription?.category?.toString() !== categoryId) return false;
+      if (categoryId && b.subscription?.category?._id.toString() !== categoryId)
+        return false;
+      if (
+        typeof isSingleClass !== "undefined" &&
+        b.subscription?.isSingleClass !== (isSingleClass === "true")
+      )
+        return false;
       return true;
     })
     .map((b) => b.customer.toString());
@@ -305,21 +336,32 @@ const updateUser = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, filteredUsers, "Filtered customers fetched successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        filteredUsers,
+        "Filtered customers fetched successfully"
+      )
+    );
 });
-
 
 //Get alla user
 const getAllUser = asyncHandler(async (req, res) => {
+  const users = await User.find()
+    .populate("user_role country city")
+    .select("-otp -otp_time -password -refreshToken")
+    .populate("user_role country city");
+  const user = users.filter(
+    (user) =>
+      user.user_role &&
+      user.user_role.name === "customer" &&
+      user.user_role.role_id === 3
+  );
 
-  const users = await User.find().populate("user_role country city")
-  .select('-otp -otp_time -password -refreshToken') 
-  .populate("user_role country city");
-  const user = users.filter(user => user.user_role && user.user_role.name === "customer" && user.user_role.role_id === 3);
-
-  res.status(200).json(new ApiResponse(200, user, "customer fetched successfully"));
+  res
+    .status(200)
+    .json(new ApiResponse(200, user, "customer fetched successfully"));
 });
-
 
 //get User by ID
 const getUserById = asyncHandler(async (req, res) => {
@@ -329,7 +371,7 @@ const getUserById = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "User ID is required"));
 
   const user = await User.findById(id)
-    .select('-otp -otp_time -password -refreshToken') 
+    .select("-otp -otp_time -password -refreshToken")
     .populate("user_role country city phone_number");
 
   if (!user) return res.status(404).json(new ApiError(404, "User not found"));
@@ -338,9 +380,10 @@ const getUserById = asyncHandler(async (req, res) => {
     return res.status(403).json(new ApiError(403, "User is not a customer"));
   }
 
-  res.status(200).json(new ApiResponse(200, user, "customer fetched successfully"));
+  res
+    .status(200)
+    .json(new ApiResponse(200, user, "customer fetched successfully"));
 });
-
 
 //delete User
 const deleteUser = asyncHandler(async (req, res) => {
@@ -370,13 +413,13 @@ const deleteUser = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, "customer deleted successfully"));
 });
 
-
 // Get all Customer Services
 const getAllCustomerService = asyncHandler(async (req, res) => {
-  const services = await ServiceType.find()
-  return res.status(200).json(new ApiResponse(200, services, "Services  fetched successfully"));
+  const services = await ServiceType.find();
+  return res
+    .status(200)
+    .json(new ApiResponse(200, services, "Services  fetched successfully"));
 });
-
 
 // Get all Subservices by Service ID
 const getAllSubserviceByService = asyncHandler(async (req, res) => {
@@ -384,34 +427,49 @@ const getAllSubserviceByService = asyncHandler(async (req, res) => {
 
   const service = await ServiceType.findById(serviceId).lean();
   if (!service) {
-    return res.status(404).json(new ApiResponse(404, null, "Service not found"));
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Service not found"));
   }
 
-  const subServices = await SubServiceType.find({ serviceTypeId: serviceId }).sort({ name: 1 }).lean();
+  const subServices = await SubServiceType.find({ serviceTypeId: serviceId })
+    .sort({ name: 1 })
+    .lean();
 
   const responseData = {
     ...service,
     subServices: subServices.map(({ serviceTypeId, ...rest }) => rest),
   };
 
-  return res.status(200).json(new ApiResponse(200, responseData, "Subservices grouped under serviceType fetched successfully"));
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        responseData,
+        "Subservices grouped under serviceType fetched successfully"
+      )
+    );
 });
-
 
 // Get SubService by ID
 const getSubserviceBySubServiceId = asyncHandler(async (req, res) => {
   const { subServiceId } = req.params;
 
-  const subService = await SubServiceType.findById(subServiceId)
-    .populate('serviceTypeId');
+  const subService = await SubServiceType.findById(subServiceId).populate(
+    "serviceTypeId"
+  );
 
   if (!subService) {
-    return res.status(404).json(new ApiResponse(404, null, "Subservice not found"));
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Subservice not found"));
   }
 
-  return res.status(200).json(new ApiResponse(200, subService, "Subservice fetched successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, subService, "Subservice fetched successfully"));
 });
-
 
 //create address
 const createAddress = asyncHandler(async (req, res) => {
@@ -467,7 +525,6 @@ const createAddress = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, createdAddress, "Address created successfully"));
 });
 
-
 //update Address
 const updateAddress = asyncHandler(async (req, res) => {
   if (req.params.id == "undefined" || !req.params.id) {
@@ -522,7 +579,6 @@ const updateAddress = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, updatedAddress, "Address updated successfully"));
 });
 
-
 //get all Address by user
 const getAllAddress = asyncHandler(async (req, res) => {
   const allAddress = await Address.find({ created_by: req.user._id })
@@ -534,7 +590,6 @@ const getAllAddress = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, allAddress, "Address fetched successfully"));
 });
-
 
 // Get Address by ID
 const getAddressById = asyncHandler(async (req, res) => {
@@ -552,7 +607,6 @@ const getAddressById = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, getAddress, "Address fetched successfully"));
 });
-
 
 // Delete Address by ID
 // const deleteAddress = asyncHandler(async (req, res) => {
@@ -581,11 +635,15 @@ const deleteAddress = asyncHandler(async (req, res) => {
     return res.status(404).json(new ApiError(404, "Address not found"));
   }
 
-  const userAddressesCount = await Address.countDocuments({ created_by: req.user._id });
+  const userAddressesCount = await Address.countDocuments({
+    created_by: req.user._id,
+  });
 
   // Prevent deleting if it's the only address
   if (userAddressesCount === 1) {
-    return res.status(400).json(new ApiError(400, "Cannot delete the only remaining address"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "Cannot delete the only remaining address"));
   }
 
   // Delete the address
@@ -593,8 +651,9 @@ const deleteAddress = asyncHandler(async (req, res) => {
 
   // If it was default, promote another one as default
   if (address.make_default_address) {
-    const latestAddress = await Address.findOne({ created_by: req.user._id })
-      .sort({ createdAt: -1 });
+    const latestAddress = await Address.findOne({
+      created_by: req.user._id,
+    }).sort({ createdAt: -1 });
 
     if (latestAddress) {
       latestAddress.make_default_address = true;
@@ -602,19 +661,22 @@ const deleteAddress = asyncHandler(async (req, res) => {
     }
   }
 
-  return res.status(200).json(new ApiResponse(200, "Address deleted successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Address deleted successfully"));
 });
-
 
 const createSubscriptionRatingReview = asyncHandler(async (req, res) => {
   const { rating, review, subscriptionId } = req.body;
   const userId = req.user?._id;
 
   // 1. Validate input
-  if (!subscriptionId || typeof rating !== 'number') {
+  if (!subscriptionId || typeof rating !== "number") {
     return res
       .status(400)
-      .json(new ApiError(400, "subscriptionId and numeric rating are required"));
+      .json(
+        new ApiError(400, "subscriptionId and numeric rating are required")
+      );
   }
 
   const subId = new mongoose.Types.ObjectId(subscriptionId);
@@ -623,9 +685,7 @@ const createSubscriptionRatingReview = asyncHandler(async (req, res) => {
   // 2. Check if subscription exists
   const subscription = await Subscription.findById(subId);
   if (!subscription) {
-    return res
-      .status(404)
-      .json(new ApiError(404, "Subscription not found"));
+    return res.status(404).json(new ApiError(404, "Subscription not found"));
   }
 
   // 3. Prevent duplicate reviews by same user
@@ -640,19 +700,32 @@ const createSubscriptionRatingReview = asyncHandler(async (req, res) => {
       .json(new ApiError(400, "You have already reviewed this subscription"));
   }
 
-  // 4. Create review
+  // 4. Create review with is_hidden as false
   const reviewData = {
     subscriptionId: subId,
     rating,
     review: review || "",
     created_by: creatorId,
+    is_hidden: false,
   };
 
   const createdReview = await SubscriptionRatingReview.create(reviewData);
 
-  return res.status(201).json(
-    new ApiResponse(201, createdReview, "Subscription review added successfully")
-  );
+// Convert to plain object to include all fields
+const reviewObj = createdReview.toObject();
+
+// Optional: ensure missing fields are manually added (for full guarantee)
+if (!("reply" in reviewObj)) reviewObj.reply = null;
+if (!("is_hidden" in reviewObj)) reviewObj.is_hidden = false;
+
+return res.status(201).json(
+  new ApiResponse(
+    201,
+    reviewObj,
+    "Subscription review added successfully"
+  )
+);
+
 });
 
 
@@ -661,7 +734,7 @@ const updateSubscriptionRatingReview = asyncHandler(async (req, res) => {
   const { subscriptionId } = req.params;
   const { review, rating } = req.body;
 
-    if (!review && (rating === undefined || rating === null)) {
+  if (!review && (rating === undefined || rating === null)) {
     return res
       .status(400)
       .json(new ApiError(400, "At least review text or rating is required"));
@@ -675,45 +748,66 @@ const updateSubscriptionRatingReview = asyncHandler(async (req, res) => {
   }
 
   const existingReview = await SubscriptionRatingReview.findOne({
-    subscriptionId: subscriptionId,
+    subscriptionId,
     created_by: req.user._id,
   });
 
   if (!existingReview) {
-    return res.status(404).json(new ApiError(404, "Review not found for this sub-service by the user"));
+    return res
+      .status(404)
+      .json(
+        new ApiError(404, "Review not found for this sub-service by the user")
+      );
   }
 
-  existingReview.review = review;
-  existingReview.rating = rating;
+  if (review) existingReview.review = review;
+  if (rating !== undefined) existingReview.rating = rating;
   existingReview.updated_by = req.user._id;
 
   await existingReview.save();
 
-  return res.status(200).json(
-    new ApiResponse(200, existingReview, "Sub-service review updated successfully")
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        existingReview,
+        "Sub-service review updated successfully"
+      )
+    );
 });
+
 
 // Get all SubService Rating and Reviews
-const getAllSubscriptionRatingReviews = asyncHandler(async (req, res) => {
+const getAllSubscriptionRatingReviewsById = asyncHandler(async (req, res) => {
   const { subscriptionId } = req.params;
   // console.log("subscriptionId:",subscriptionId);
-  
+
   if (!subscriptionId) {
-    return res.status(400).json(new ApiError(400, "Subscription ID is required"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "Subscription ID is required"));
   }
 
-  const reviews = await SubscriptionRatingReview.find({ subscriptionId })
-    .populate("created_by", "first_name email")
-    .exec();
+  const reviews = await SubscriptionRatingReview.find({
+  subscriptionId,
+  is_hidden: false,
+})
+  .populate("created_by", "first_name email")
+  .exec();
+
 
   if (!reviews.length) {
     return res.status(200).json(
-      new ApiResponse(200, {
-        reviews: [],
-        averageRating: "0.00",
-        totalReviews: 0,
-      }, "No reviews found for this subscription")
+      new ApiResponse(
+        200,
+        {
+          reviews: [],
+          averageRating: "0.00",
+          totalReviews: 0,
+        },
+        "No reviews found for this subscription"
+      )
     );
   }
 
@@ -722,40 +816,67 @@ const getAllSubscriptionRatingReviews = asyncHandler(async (req, res) => {
     reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
   ).toFixed(2);
 
-  return res.status(200).json(
-    new ApiResponse(200, { reviews, averageRating, totalReviews }, "Reviews fetched successfully")
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { reviews, averageRating, totalReviews },
+        "Reviews fetched successfully"
+      )
+    );
 });
-
 
 const getAllSubscriptionsRatingReviews = asyncHandler(async (req, res) => {
- 
-  const reviews = await SubscriptionRatingReview.find()
-    .populate("created_by", "first_name email")
-    // .populate("trainer", "first_name email")
-    // .populate("sessionId") 
-    .populate("subscriptionId") 
-    .exec();
- 
-  if (!reviews.length) {
+  try {
+    const reviews = await SubscriptionRatingReview.find({
+      // is_hidden: false, 
+    })
+      .select("rating review reply is_hidden createdAt created_by subscriptionId")
+      .populate("created_by", "first_name email") // Get reviewer info
+      .populate("subscriptionId", "name description") // Populate subscription info
+      .exec();
+
+    // No reviews found
+    if (!reviews.length) {
+      return res.status(200).json(
+        new ApiResponse(
+          200,
+          {
+            reviews: [],
+            averageRating: "0.00",
+            totalReviews: 0,
+          },
+          "No reviews found."
+        )
+      );
+    }
+
+    // Calculate total and average
+    const totalReviews = reviews.length;
+    const averageRating = (
+      reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
+    ).toFixed(2);
+
     return res.status(200).json(
-      new ApiResponse(200, {
-        reviews: [],
-        averageRating: "0.00",
-        totalReviews: 0,
-      }, "No reviews found for this sub-service")
+      new ApiResponse(
+        200,
+        {
+          reviews,
+          averageRating,
+          totalReviews,
+        },
+        "All subscription reviews fetched successfully."
+      )
+    );
+  } catch (error) {
+    console.error("Error fetching reviews:", error);
+    return res.status(500).json(
+      new ApiResponse(500, {}, "Failed to fetch reviews.")
     );
   }
-
-  const totalReviews = reviews.length;
-  const averageRating = (
-    reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
-  ).toFixed(2);
-
-  return res.status(200).json(
-    new ApiResponse(200, { reviews, averageRating, totalReviews }, "Reviews fetched successfully")
-  );
 });
+
 
 
 // Get SubService Rating and Review by User
@@ -763,43 +884,104 @@ const getSubscriptionRatingReviewByUser = asyncHandler(async (req, res) => {
   const { subscriptionId } = req.params;
 
   if (!subscriptionId) {
-    return res.status(400).json(new ApiError(400, "subscription ID is required"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "subscription ID is required"));
   }
 
   const review = await SubscriptionRatingReview.findOne({
-  subscriptionId: subscriptionId, // 👈 This is correct
-  created_by: req.user._id,
-})
-.populate("subscriptionId", "name image") // also fix the populate field if needed
-.exec();
-
+    subscriptionId: subscriptionId, // 👈 This is correct
+    created_by: req.user._id,
+  })
+    .populate("subscriptionId", "name image") // also fix the populate field if needed
+    .exec();
 
   if (!review) {
-    return res.status(404).json(new ApiError(404, "No review found for this subscription id by the user"));
+    return res
+      .status(404)
+      .json(
+        new ApiError(
+          404,
+          "No review found for this subscription id by the user"
+        )
+      );
   }
 
-  return res.status(200).json(new ApiResponse(200, review, "User's subscription id review fetched successfully"));
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        review,
+        "User's subscription id review fetched successfully"
+      )
+    );
+});
+
+const replyToSubscriptionReview = asyncHandler(async (req, res) => {
+  const { reviewId } = req.params;
+  const { reply } = req.body;
+
+  if (!reply) {
+    return res.status(400).json(new ApiError(400, "Reply content is required"));
+  }
+
+  const review = await SubscriptionRatingReview.findById(reviewId);
+  if (!review) {
+    return res.status(404).json(new ApiError(404, "Review not found"));
+  }
+
+  review.reply = reply;
+  review.updated_by = req.user._id;
+  await review.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, review, "Reply added to review successfully"));
+});
+
+const toggleSubscriptionReviewVisibility = asyncHandler(async (req, res) => {
+  const { reviewId } = req.params;
+
+  const review = await SubscriptionRatingReview.findById(reviewId);
+  if (!review) {
+    return res.status(404).json(new ApiError(404, "Review not found"));
+  }
+
+  review.is_hidden = !review.is_hidden; // Toggle visibility
+  review.updated_by = req.user._id;
+  await review.save();
+
+  const message = review.is_hidden
+    ? "Review hidden successfully"
+    : "Review made visible successfully";
+
+  return res.status(200).json(new ApiResponse(200, review.toObject(), message));
 });
 
 
 // Create Trainer Rating and Review
 const createTrainerRatingReview = asyncHandler(async (req, res) => {
-  const {trainer, rating, review } = req.body;
+  const { trainer, rating, review } = req.body;
 
   console.log("reqbody----------------->", req.body);
-  
-  if (!trainer  || !rating) {
-    return res.status(400).json(new ApiError(400, "Trainer ID and rating are required"));
+
+  if (!trainer || !rating) {
+    return res
+      .status(400)
+      .json(new ApiError(400, "Trainer ID and rating are required"));
   }
 
   const existingReview = await TrainerRatingReview.findOne({
     trainer,
     created_by: req.user._id,
   });
-// console.log("existingReview----------------------->",existingReview);
+  // console.log("existingReview----------------------->",existingReview);
 
   if (existingReview) {
-    return res.status(400).json(new ApiError(400, "You have already reviewed this trainer"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "You have already reviewed this trainer"));
   }
 
   const reviewData = {
@@ -811,13 +993,17 @@ const createTrainerRatingReview = asyncHandler(async (req, res) => {
   };
 
   const createdReview = await TrainerRatingReview.create(reviewData);
-  console.log("createdReview----------------------------------->",createdReview);
-  
+  console.log(
+    "createdReview----------------------------------->",
+    createdReview
+  );
+
   return res
     .status(201)
-    .json(new ApiResponse(201, createdReview, "Trainer review added successfully"));
+    .json(
+      new ApiResponse(201, createdReview, "Trainer review added successfully")
+    );
 });
-
 
 // Update Trainer Rating and Review
 const updateTrainerRatingReview = asyncHandler(async (req, res) => {
@@ -836,7 +1022,14 @@ const updateTrainerRatingReview = asyncHandler(async (req, res) => {
   });
 
   if (!existingReview) {
-    return res.status(404).json(new ApiError(404, "Review not found for this trainer and sub-service by the user"));
+    return res
+      .status(404)
+      .json(
+        new ApiError(
+          404,
+          "Review not found for this trainer and sub-service by the user"
+        )
+      );
   }
 
   existingReview.rating = rating || existingReview.rating;
@@ -846,30 +1039,95 @@ const updateTrainerRatingReview = asyncHandler(async (req, res) => {
 
   await existingReview.save();
 
-  return res.status(200).json(
-    new ApiResponse(200, existingReview, "Trainer review updated successfully")
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        existingReview,
+        "Trainer review updated successfully"
+      )
+    );
 });
-
 
 // Get all Trainer Reviews
 const getAllTrainerReviews = asyncHandler(async (req, res) => {
-
   const reviews = await TrainerRatingReview.find({})
-    .populate("trainer", "first_name profile_image") 
-    // .populate("session", "name") 
+    .populate("trainer", "first_name profile_image")
+    // .populate("session", "name")
     .populate("created_by", "first_name last_name")
-.populate("updated_by", "first_name last_name")
+    .populate("updated_by", "first_name last_name")
 
-    .sort({ createdAt: -1 }); 
+    .sort({ createdAt: -1 });
 
   if (!reviews || reviews.length === 0) {
     return res.status(404).json(new ApiError(404, "No reviews found"));
   }
 
-  return res.status(200).json(new ApiResponse(200, reviews, "All trainer reviews fetched successfully"));
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, reviews, "All trainer reviews fetched successfully")
+    );
 });
 
+// Admin: Hide or Unhide Trainer Review
+const toggleTrainerReviewVisibility = asyncHandler(async (req, res) => {
+  const { reviewId } = req.params;
+  const { hide } = req.body; // hide: true or false
+
+  const review = await TrainerRatingReview.findById(reviewId);
+
+  if (!review) {
+    return res.status(404).json(new ApiError(404, "Review not found"));
+  }
+
+  review.is_hidden = hide;
+  review.updated_by = req.user._id;
+  await review.save();
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        review,
+        `Trainer review has been ${hide ? "hidden" : "unhidden"} successfully`
+      )
+    );
+});
+
+// Admin: Reply to Trainer Review
+const replyToTrainerReview = asyncHandler(async (req, res) => {
+  const { reviewId } = req.params;
+  const { reply } = req.body;
+
+  if (!reply) {
+    return res.status(400).json(new ApiError(400, "Reply text is required"));
+  }
+
+  const review = await TrainerRatingReview.findById(reviewId);
+
+  if (!review) {
+    return res.status(404).json(new ApiError(404, "Review not found"));
+  }
+
+  review.admin_reply = reply;
+  review.admin_reply_date = new Date();
+  review.updated_by = req.user._id;
+
+  await review.save();
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        review,
+        "Admin reply added to trainer review successfully"
+      )
+    );
+});
 
 // Get Trainer Rating and Review by User
 // const getTrainerRatingReviewByUser = asyncHandler(async (req, res) => {
@@ -887,7 +1145,7 @@ const getAllTrainerReviews = asyncHandler(async (req, res) => {
 //     .exec();
 
 //     console.log("review---------------->",review);
-    
+
 //   if (!review) {
 //     return res.status(200).json( new ApiResponse(200, {}, "No review found for this trainer by the user"));
 //   }
@@ -951,17 +1209,18 @@ const getTrainerRatingReviewByUser = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, [], msg));
   }
 
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      reviews,
-      loggedInUser?.user_role?.name === "admin"
-        ? "All reviews for the trainer fetched successfully."
-        : "Your review for the trainer fetched successfully."
-    )
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        reviews,
+        loggedInUser?.user_role?.name === "admin"
+          ? "All reviews for the trainer fetched successfully."
+          : "Your review for the trainer fetched successfully."
+      )
+    );
 });
-
 
 // Get Reviews for Logged-in Trainer
 const getMyTrainerReviews = asyncHandler(async (req, res) => {
@@ -979,9 +1238,14 @@ const getMyTrainerReviews = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, reviews, "Your trainer reviews fetched successfully."));
+    .json(
+      new ApiResponse(
+        200,
+        reviews,
+        "Your trainer reviews fetched successfully."
+      )
+    );
 });
-
 
 const calculateCartTotal = asyncHandler(async (req, res) => {
   const { promoCode } = req.body;
@@ -989,22 +1253,26 @@ const calculateCartTotal = asyncHandler(async (req, res) => {
   // Fetch cart items
   const cartItems = await Cart.find({ created_by: req.user._id })
     .populate("subServiceId")
-    .populate("timeslot") 
+    .populate("timeslot")
     .populate("petTypeId", "name")
     .sort({ _id: -1 });
 
-    // console.log("cartItems with timeslot-------------------------------->",cartItems);
-    
+  // console.log("cartItems with timeslot-------------------------------->",cartItems);
+
   if (!cartItems.length) {
-    return res.status(404).json(new ApiResponse(404, {}, "No cart items found"));
+    return res
+      .status(404)
+      .json(new ApiResponse(404, {}, "No cart items found"));
   }
 
-const extraChargeData = await ExtraCharge.findOne({is_default : true});
-if (!extraChargeData) {
-  return res.status(404).json(new ApiResponse(404, {}, "Extra charge rate not configured"));
-}
-const extraPricePerHour = parseFloat(extraChargeData.extraprice);
-// console.log("extraPricePerHour------>",extraPricePerHour);
+  const extraChargeData = await ExtraCharge.findOne({ is_default: true });
+  if (!extraChargeData) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, {}, "Extra charge rate not configured"));
+  }
+  const extraPricePerHour = parseFloat(extraChargeData.extraprice);
+  // console.log("extraPricePerHour------>",extraPricePerHour);
 
   let subtotal = 0;
   let extraCharges = 0;
@@ -1036,31 +1304,31 @@ const extraPricePerHour = parseFloat(extraChargeData.extraprice);
   // });
 
   cartItems.forEach((item) => {
-  const groomingDetail = item.subServiceId?.groomingDetails.find(
-    (detail) => detail._id.toString() === item.petWeight.toString()
-  );
+    const groomingDetail = item.subServiceId?.groomingDetails.find(
+      (detail) => detail._id.toString() === item.petWeight.toString()
+    );
 
-  if (groomingDetail) {
-    const petCount = item.petTypeId.length; 
-    // console.log("petCount---------------->",petCount);
-    
-    subtotal += parseFloat(groomingDetail.price) * petCount;
-  }
+    if (groomingDetail) {
+      const petCount = item.petTypeId.length;
+      // console.log("petCount---------------->",petCount);
 
-  if (item.timeslot) {
-    const startTime = new Date(item.timeslot.startTime);
-    const endTime = new Date(item.timeslot.endTime);
-
-    const overtimeStart = new Date(startTime);
-    overtimeStart.setHours(18, 0, 0, 0); // 6 PM
-
-    if (endTime > overtimeStart) {
-      const overtimeMs = endTime - overtimeStart;
-      const overtimeHours = overtimeMs / (1000 * 60 * 60);
-      extraCharges += overtimeHours * extraPricePerHour;
+      subtotal += parseFloat(groomingDetail.price) * petCount;
     }
-  }
-});
+
+    if (item.timeslot) {
+      const startTime = new Date(item.timeslot.startTime);
+      const endTime = new Date(item.timeslot.endTime);
+
+      const overtimeStart = new Date(startTime);
+      overtimeStart.setHours(18, 0, 0, 0); // 6 PM
+
+      if (endTime > overtimeStart) {
+        const overtimeMs = endTime - overtimeStart;
+        const overtimeHours = overtimeMs / (1000 * 60 * 60);
+        extraCharges += overtimeHours * extraPricePerHour;
+      }
+    }
+  });
 
   // Tax application
   const taxData = await TaxMaster.findOne();
@@ -1078,52 +1346,65 @@ const extraPricePerHour = parseFloat(extraChargeData.extraprice);
   let promoCodeId = null;
 
   if (promoCode) {
-    const promoData = await PromoCode.findOne({ code: promoCode, isActive: true });
+    const promoData = await PromoCode.findOne({
+      code: promoCode,
+      isActive: true,
+    });
 
     if (promoData) {
       const now = new Date();
 
       if (
         promoData.is_validation_date &&
-        (
-          (promoData.startDate && now < promoData.startDate) ||
-          (promoData.endDate && now > promoData.endDate)
-        )
+        ((promoData.startDate && now < promoData.startDate) ||
+          (promoData.endDate && now > promoData.endDate))
       ) {
-        return res.status(400).json(
-          new ApiResponse(400, {}, "Promo code is expired or not yet active")
-        );
+        return res
+          .status(400)
+          .json(
+            new ApiResponse(400, {}, "Promo code is expired or not yet active")
+          );
       }
 
-      if (promoData.usedBy.some(id => id.toString() === req.user._id.toString())) {
-        return res.status(400).json(
-          new ApiResponse(400, {}, "You have already used this promo code")
-        );
+      if (
+        promoData.usedBy.some((id) => id.toString() === req.user._id.toString())
+      ) {
+        return res
+          .status(400)
+          .json(
+            new ApiResponse(400, {}, "You have already used this promo code")
+          );
       }
 
       const currentUses = parseFloat(promoData.maxUses);
       if (currentUses <= 0) {
-        return res.status(400).json(
-          new ApiResponse(400, {}, "Promo code usage limit reached")
-        );
+        return res
+          .status(400)
+          .json(new ApiResponse(400, {}, "Promo code usage limit reached"));
       }
 
       const minOrderAmount = parseFloat(promoData.minOrderAmount);
       if (totalPrice < minOrderAmount) {
-        return res.status(400).json(
-          new ApiResponse(400, {}, `Promo code requires a minimum order amount of ₹${minOrderAmount}`)
-        );
+        return res
+          .status(400)
+          .json(
+            new ApiResponse(
+              400,
+              {},
+              `Promo code requires a minimum order amount of ₹${minOrderAmount}`
+            )
+          );
       }
 
       // Discount calculation
       if (promoData.discountType === "Percentage") {
-        discountAmount = (totalPrice * parseFloat(promoData.discountValue)) / 100;
+        discountAmount =
+          (totalPrice * parseFloat(promoData.discountValue)) / 100;
 
         const maxDiscount = parseFloat(promoData.maxDiscountAmount);
         if (maxDiscount > 0 && discountAmount > maxDiscount) {
           discountAmount = maxDiscount;
         }
-
       } else if (promoData.discountType === "Fixed_Amount") {
         discountAmount = parseFloat(promoData.discountValue);
         if (discountAmount > totalPrice) {
@@ -1133,26 +1414,29 @@ const extraPricePerHour = parseFloat(extraChargeData.extraprice);
 
       totalPrice -= discountAmount;
       promoCodeId = promoData._id;
-
     } else {
-      return res.status(404).json(
-        new ApiResponse(404, {}, "Invalid or inactive promo code")
-      );
+      return res
+        .status(404)
+        .json(new ApiResponse(404, {}, "Invalid or inactive promo code"));
     }
   }
 
   // Final Response
   return res.status(200).json(
-    new ApiResponse(200, {
-      subtotal: subtotal.toFixed(2),
-      taxAmount: taxAmount.toFixed(2),
-      extraCharges: extraCharges.toFixed(2),
-      discountAmount: discountAmount.toFixed(2),
-      totalPrice: totalPrice.toFixed(2),
-      taxApplied: !!taxData,
-      promoApplied: !!promoCode,
-      promoCodeId: promoCodeId
-    }, "Cart total calculated successfully")
+    new ApiResponse(
+      200,
+      {
+        subtotal: subtotal.toFixed(2),
+        taxAmount: taxAmount.toFixed(2),
+        extraCharges: extraCharges.toFixed(2),
+        discountAmount: discountAmount.toFixed(2),
+        totalPrice: totalPrice.toFixed(2),
+        taxApplied: !!taxData,
+        promoApplied: !!promoCode,
+        promoCodeId: promoCodeId,
+      },
+      "Cart total calculated successfully"
+    )
   );
 });
 
@@ -1164,9 +1448,9 @@ const getAdminDetails = asyncHandler(async (req, res) => {
   const adminRole = await UserRole.findOne({ name: "admin", role_id: 1 });
 
   if (!adminRole) {
-    return res.status(404).json(
-      new ApiResponse(404, [], "Admin role not found.")
-    );
+    return res
+      .status(404)
+      .json(new ApiResponse(404, [], "Admin role not found."));
   }
 
   const adminUsers = await User.find({ user_role: adminRole._id })
@@ -1174,24 +1458,24 @@ const getAdminDetails = asyncHandler(async (req, res) => {
     .select("-_id email first_name last_name phone_number");
 
   if (!adminUsers.length) {
-    return res.status(404).json(
-      new ApiResponse(404, [], "No admin users found.")
-    );
+    return res
+      .status(404)
+      .json(new ApiResponse(404, [], "No admin users found."));
   }
 
-  res.status(200).json(
-    new ApiResponse(200, adminUsers, "details fetched successfully.")
-  );
+  res
+    .status(200)
+    .json(new ApiResponse(200, adminUsers, "details fetched successfully."));
 });
 
 const getAllNotification = asyncHandler(async (req, res) => {
   const userId = req.user._id;
-// console.log("userid----------->",userId);
+  // console.log("userid----------->",userId);
 
   const notifications = await Notification.find({ userId })
-    .sort({ createdAt: -1 })  
-    .limit(5);                
-// console.log("notifications------------->",notifications);
+    .sort({ createdAt: -1 })
+    .limit(5);
+  // console.log("notifications------------->",notifications);
 
   if (!notifications || notifications.length === 0) {
     return res.status(204).json(new ApiError(204, "No notifications found"));
@@ -1205,10 +1489,15 @@ const getAllNotification = asyncHandler(async (req, res) => {
 
 const updateNotification = asyncHandler(async (req, res) => {
   if (req.params.id === "undefined" || !req.params.id) {
-    return res.status(400).json(new ApiError(400, "Notification ID not provided"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "Notification ID not provided"));
   }
 
-  if (Object.keys(req.body).length === 0 || !req.body.hasOwnProperty('isRead')) {
+  if (
+    Object.keys(req.body).length === 0 ||
+    !req.body.hasOwnProperty("isRead")
+  ) {
     return res
       .status(400)
       .json(new ApiError(400, "No valid data provided to update"));
@@ -1231,13 +1520,21 @@ const updateNotification = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, updatedNotification, "Notification updated successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        updatedNotification,
+        "Notification updated successfully"
+      )
+    );
 });
 const updateAllNotification = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
 
   if (!userId) {
-    return res.status(400).json(new ApiError(400, "User ID not found in request"));
+    return res
+      .status(400)
+      .json(new ApiError(400, "User ID not found in request"));
   }
 
   const result = await Notification.updateMany(
@@ -1251,12 +1548,16 @@ const updateAllNotification = asyncHandler(async (req, res) => {
   );
 
   if (result.modifiedCount === 0) {
-    return res.status(404).json(new ApiError(404, "No unread notifications found to update"));
+    return res
+      .status(404)
+      .json(new ApiError(404, "No unread notifications found to update"));
   }
 
-  return res.status(200).json(
-    new ApiResponse(200, result, "All unread notifications marked as read")
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, result, "All unread notifications marked as read")
+    );
 });
 
 const cancelOrderByCustomer = asyncHandler(async (req, res) => {
@@ -1269,7 +1570,10 @@ const cancelOrderByCustomer = asyncHandler(async (req, res) => {
   }
 
   if (bookingStatus !== "CANCEL") {
-    throw new ApiError(400, "Invalid booking status. Only 'CANCEL' is allowed.");
+    throw new ApiError(
+      400,
+      "Invalid booking status. Only 'CANCEL' is allowed."
+    );
   }
 
   const orderDetail = await OrderDetails.findById(orderDetailsId)
@@ -1323,7 +1627,10 @@ const sendClassRemindersService = async () => {
     .populate({
       path: "subscription",
       match: {
-        startTime: { $gte: now.toISOString(), $lte: oneHourLater.toISOString() },
+        startTime: {
+          $gte: now.toISOString(),
+          $lte: oneHourLater.toISOString(),
+        },
       },
       populate: [
         { path: "trainer", select: "first_name email" },
@@ -1336,7 +1643,10 @@ const sendClassRemindersService = async () => {
   const notifications = [];
 
   const formatTime = (date) =>
-    new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    new Date(date).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   for (const booking of upcomingBookings) {
     const sub = booking.subscription;
@@ -1401,8 +1711,6 @@ const sendUpcomingClassReminders = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, { count }, "Upcoming class reminders sent"));
 });
 
-
-
 export {
   sendClassRemindersService,
   sendUpcomingClassReminders,
@@ -1423,7 +1731,7 @@ export {
   deleteAddress,
   createSubscriptionRatingReview,
   updateSubscriptionRatingReview,
-  getAllSubscriptionRatingReviews,
+  getAllSubscriptionRatingReviewsById,
   getSubscriptionRatingReviewByUser,
   createTrainerRatingReview,
   updateTrainerRatingReview,
@@ -1435,5 +1743,9 @@ export {
   getAllNotification,
   updateNotification,
   updateAllNotification,
-  getMyTrainerReviews
+  getMyTrainerReviews,
+  toggleTrainerReviewVisibility,
+  replyToTrainerReview,
+  replyToSubscriptionReview,
+  toggleSubscriptionReviewVisibility,
 };

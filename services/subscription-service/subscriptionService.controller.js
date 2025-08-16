@@ -11,6 +11,8 @@ import mongoose from "mongoose";
 import haversine from "haversine-distance";
 import { LocationMaster } from "../../models/master.model.js";
 import { SubscriptionBooking } from "../../models/booking.model.js";
+import NotificationService from "../../messaging_feature/services/NotificationService.js";
+import { PackageBooking } from "../../models/packageBooking.model.js";
 
 const haversineDistance = (coords1, coords2) => {
   const toRad = (x) => (x * Math.PI) / 180;
@@ -1370,28 +1372,23 @@ const getTrainerAssignedSubscriptions = asyncHandler(async (req, res) => {
     );
   }
 
+  // Utilities
   const normalize = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+  const toBoolean = (v) => v === true || v === "true";
 
+  // Build filter
   const filter = { trainer: trainerId };
 
-  if (isExpired !== undefined) {
-    if (Array.isArray(isExpired)) {
-      filter.isExpired = {
-        $in: isExpired.map((v) => v === "true" || v === true),
-      };
-    } else {
-      filter.isExpired = isExpired === "true" || isExpired === true;
-    }
+  if (isExpired !== undefined && isExpired !== "") {
+    filter.isExpired = Array.isArray(isExpired)
+      ? { $in: isExpired.map(toBoolean) }
+      : toBoolean(isExpired);
   }
 
-  if (isSingleClass !== undefined) {
-    if (Array.isArray(isSingleClass)) {
-      filter.isSingleClass = {
-        $in: isSingleClass.map((v) => v === "true" || v === true),
-      };
-    } else {
-      filter.isSingleClass = isSingleClass === "true" || isSingleClass === true;
-    }
+  if (isSingleClass !== undefined && isSingleClass !== "") {
+    filter.isSingleClass = Array.isArray(isSingleClass)
+      ? { $in: isSingleClass.map(toBoolean) }
+      : toBoolean(isSingleClass);
   }
 
   if (minPrice || maxPrice) {
@@ -1420,7 +1417,7 @@ const getTrainerAssignedSubscriptions = asyncHandler(async (req, res) => {
     .limit(Number(limit))
     .lean();
 
-  // Fallback: retry without `isExpired` filter if no result
+  // Retry without isExpired filter if no results found
   if (
     subscriptions.length === 0 &&
     (isExpired === false || isExpired === "false")
@@ -1435,6 +1432,7 @@ const getTrainerAssignedSubscriptions = asyncHandler(async (req, res) => {
       .lean();
   }
 
+  // Add reviews and ratings
   const subscriptionIds = subscriptions.map((s) => s._id);
   const reviews = await SubscriptionRatingReview.find({
     subscriptionId: { $in: subscriptionIds },
@@ -1462,7 +1460,7 @@ const getTrainerAssignedSubscriptions = asyncHandler(async (req, res) => {
     };
   });
 
-  // Sort logic
+  // Sorting
   if (sortBy === "price") {
     subscriptions.sort((a, b) =>
       order === "asc" ? a.price - b.price : b.price - a.price
@@ -1499,6 +1497,7 @@ const getTrainerAssignedSubscriptions = asyncHandler(async (req, res) => {
     )
   );
 });
+
 
 const getTrainerClassStats = asyncHandler(async (req, res) => {
   const trainerId = req.user._id;

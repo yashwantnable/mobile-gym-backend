@@ -29,11 +29,15 @@ import{
     getAllNotification,
     updateNotification,
     updateAllNotification,
-    getAllSubscriptionRatingReviews,
     getSubscriptionRatingReviewByUser,
     getAllSubscriptionsRatingReviews,
     getFilteredCustomers,
     getMyTrainerReviews,
+    toggleTrainerReviewVisibility,
+    replyToTrainerReview,
+    replyToSubscriptionReview,
+    toggleSubscriptionReviewVisibility,
+    getAllSubscriptionRatingReviewsById,
 } from "./user.controller.js"
 
 import {getAllArticals, getArticalById} from "../../services/admin-service/admin.controller.js"
@@ -63,7 +67,7 @@ router.route("/create-subscription-rating-review").post(verifyJWT,customerOnly,c
 router.route("/update-subscription-review/:subscriptionId").put(verifyJWT,customerOnly, updateSubscriptionRatingReview);
 // router.route("/delete-trainer-review-images/:id").patch(verifyJWT, customerOnly, updateTrainerRatingReview);
 router.route("/get-rating-review/:subscriptionId").get(verifyJWT,getSubscriptionRatingReviewByUser);
-router.route("/get-all-subscription-rating-review/:subscriptionId").get(getAllSubscriptionRatingReviews);
+router.route("/get-all-subscription-rating-review/:subscriptionId").get(getAllSubscriptionRatingReviewsById);
 router.route("/get-all-subscription-rating-review").get(getAllSubscriptionsRatingReviews);
 
 router.route("/create-trainer-rating-review").post(verifyJWT,customerOnly,createTrainerRatingReview);
@@ -71,6 +75,13 @@ router.route("/update-trainer-review/:trainerId").put(verifyJWT,customerOnly, up
 router.route("/get-trainer-review/:trainerId").get(verifyJWT, getTrainerRatingReviewByUser);
 router.route("/get-all-trainer-reviews").get(verifyJWT, getAllTrainerReviews);
 router.get('/trainer/my-reviews', verifyJWT, trainerOnly, getMyTrainerReviews);
+
+router.put("/admin-hide-trainer-review/:reviewId", verifyJWT, adminOnly, toggleTrainerReviewVisibility);
+router.post("/admin-reply-trainer-review/:reviewId", verifyJWT, adminOnly, replyToTrainerReview);
+
+router.post("/reply-subscription-review/:reviewId",  verifyJWT, adminOnly, replyToSubscriptionReview);
+router.put("/review-subscription-visibility/:reviewId",  verifyJWT, adminOnly, toggleSubscriptionReviewVisibility);
+
 
 
 
