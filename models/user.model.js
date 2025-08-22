@@ -8,6 +8,13 @@ const userSchema = new Schema(
     //   type: String,
     //   unique: true,
     // },
+     emirates_id: {
+      type: String,
+      unique: true,
+      required: true,
+      trim: true,
+      maxlength: 20, 
+    },
     email: {
       type: String,
       required: true,

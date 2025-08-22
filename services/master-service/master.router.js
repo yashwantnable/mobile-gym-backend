@@ -52,9 +52,24 @@ deleteLocationMaster,
   updateCategory,
   getSingleCategory,
   getSessionsByCategoryId,
+  createPolicy,
+  updatePolicy,
+  deletePolicy,
+  getAllPolicies,
+  getLatestTerms,
+  getLatestPrivacy,
 } from "./master.controller.js";
 
 const router = Router();
+
+router.post("/create-terms-n-policy", verifyJWT, adminOnly, createPolicy);
+router.patch("/update-terms-n-policy/:policyId", verifyJWT, adminOnly, updatePolicy);
+router.delete("delete-terms-n-policy/:id", deletePolicy);
+
+
+router.get("/all-tnc", getAllPolicies);
+router.get("/get-all-terms", getLatestTerms);
+router.get("/get-all-privacy", getLatestPrivacy);
 
 //Tenure MAsters
 router.route("/create-tenure").post(verifyJWT, adminOnly, createTenure);

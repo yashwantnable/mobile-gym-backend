@@ -13,6 +13,10 @@ const sessionSchema = new Schema(
         lowercase: true,
         required: true,
       },
+       description: {
+      type: String,
+      trim: true,
+    },
       image: {
         type: String,
       },

@@ -33,6 +33,8 @@ import {getAllSubscriptionRatingReviewsById} from "../../services/user-service/u
 
 const router = Router()
 
+
+
 router.route("/create-pet").post(verifyJWT, upload.uploadAny(),createPet);
 router.route("/updatePet/:petId").put(verifyJWT, upload.uploadAny(), updatePet);
 router.route("/findPetById/:petId").get(verifyJWT, findPetById)

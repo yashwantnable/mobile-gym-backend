@@ -19,6 +19,7 @@ import countries from "../../utils/seeds/countries.js";
 import pagination from "../../utils/pagination.js";
 import { UserRole } from "../../models/userRole.model.js";
 import { Session } from "../../models/service.model.js";
+import { Policy } from "../../models/policy.model.js";
 
 // Create Tenure
 const createTenure = asyncHandler(async (req, res) => {
@@ -604,11 +605,11 @@ const deleteAllCities = asyncHandler(async (req, res) => {
 /////////////////////////////////////////////////////// SERVICE ////////////////////////////////////////////////////////
 // Create Session
 const createSession = asyncHandler(async (req, res) => {
-  const { categoryId, sessionName } = req.body;
+  const { categoryId, sessionName, description  } = req.body;
   const imageLocalPath = req.file?.path;
   console.log("req.body:", req.body);
 
-  if (!categoryId || !sessionName) {
+  if (!categoryId || !sessionName || !description ) {
     return res
       .status(400)
       .json(
@@ -631,6 +632,7 @@ const createSession = asyncHandler(async (req, res) => {
     categoryId,
     sessionName,
     image,
+    description,
     created_by: req.user._id,
   });
 
@@ -639,42 +641,17 @@ const createSession = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, session, "Session created successfully"));
 });
 
-// Get getAllSessions
-const getAllSessions = asyncHandler(async (req, res) => {
-  const session = await Session.find().populate("categoryId");
-  res
-    .status(200)
-    .json(new ApiResponse(200, session, "Session fetched successfully"));
-});
-
-// Get Session by ID
-const getSessionById = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  if (!id) {
-    return res.status(400).json(new ApiError(400, "Session ID is required"));
-  }
-
-  const session = await Session.findById(id).populate("categoryId");
-  if (!session) {
-    return res.status(404).json(new ApiError(404, "Session not found"));
-  }
-
-  res
-    .status(200)
-    .json(new ApiResponse(200, session, "Session fetched successfully"));
-});
-
 // Update Session
 const updateSession = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { sessionName, categoryId } = req.body;
+  const { sessionName, categoryId, description  } = req.body;
   const imageLocalPath = req.file?.path;
 
   if (!id || id === "undefined") {
     return res.status(400).json(new ApiError(400, "Session ID not provided"));
   }
 
-  if (!sessionName && !categoryId && !imageLocalPath) {
+  if (!sessionName && !categoryId && !imageLocalPath && !description ) {
     return res
       .status(400)
       .json(new ApiError(400, "No data provided to update"));
@@ -708,6 +685,7 @@ const updateSession = asyncHandler(async (req, res) => {
     id,
     {
       sessionName: sessionName || existingSession.sessionName,
+      description: description || existingSession.description,
       categoryId: categoryId || existingSession.categoryId,
       image,
       updated_by: req.user._id,
@@ -719,6 +697,33 @@ const updateSession = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, updatedSession, "Session updated successfully"));
 });
+
+// Get getAllSessions
+const getAllSessions = asyncHandler(async (req, res) => {
+  const session = await Session.find().populate("categoryId");
+  res
+    .status(200)
+    .json(new ApiResponse(200, session, "Session fetched successfully"));
+});
+
+// Get Session by ID
+const getSessionById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!id) {
+    return res.status(400).json(new ApiError(400, "Session ID is required"));
+  }
+
+  const session = await Session.findById(id).populate("categoryId");
+  if (!session) {
+    return res.status(404).json(new ApiError(404, "Session not found"));
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, session, "Session fetched successfully"));
+});
+
+
 
 // Delete Session
 const deleteSession = asyncHandler(async (req, res) => {
@@ -1241,7 +1246,120 @@ const deleteTaxMaster = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Tax Master deleted successfully"));
 });
 
+
+
+// ✅ Create Policy (Terms or Privacy)
+const createPolicy = asyncHandler(async (req, res) => {
+  const { type, title, content, version } = req.body;
+
+  if (!type || !title || !content) {
+    return res.status(400).json(new ApiError(400, "Missing required fields"));
+  }
+
+  const policy = await Policy.create({
+    type,     // e.g. "terms" or "privacy"
+    title,
+    content,
+    version,  // optional versioning if you want to track changes
+  });
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, policy, `${type} created successfully`));
+});
+
+// ✅ Update Policy
+const updatePolicy = asyncHandler(async (req, res) => {
+  const { policyId } = req.params;
+  const { title, content, version } = req.body;
+
+  const updatedPolicy = await Policy.findByIdAndUpdate(
+    policyId,
+    { title, content, version },
+    { new: true }
+  );
+
+  if (!updatedPolicy) {
+    return res.status(404).json(new ApiError(404, "Policy not found"));
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedPolicy, "Policy updated successfully"));
+});
+
+
+// ✅ Get all policies
+const getAllPolicies = asyncHandler(async (req, res) => {
+  const policies = await Policy.find().sort({ createdAt: -1 });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, policies, "Policies fetched successfully"));
+});
+
+// ✅ Get latest Terms
+const getLatestTerms = asyncHandler(async (req, res) => {
+  try {
+    const terms = await Policy.findOne({ type: "TERMS" }).sort({ createdAt: -1 });
+
+    if (!terms) {
+      return res
+        .status(404)
+        .json(new ApiResponse(404, null, "No Terms & Conditions found"));
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, terms, "Latest Terms fetched successfully"));
+  } catch (error) {
+    console.error("Error fetching latest terms:", error);
+    throw new ApiError(500, "Internal server error while fetching terms");
+  }
+});
+
+// ✅ Get latest Privacy Policy
+const getLatestPrivacy = asyncHandler(async (req, res) => {
+  const privacy = await Policy.findOne({ type: "PRIVACY" }).sort({
+    createdAt: -1,
+  });
+
+  if (!privacy) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Privacy Policy not found"));
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, privacy, "Latest Privacy Policy fetched"));
+});
+
+// ✅ Delete Policy
+const deletePolicy = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const policy = await Policy.findByIdAndDelete(id);
+
+  if (!policy) {
+    throw new ApiError(404, "Policy not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Policy deleted successfully"));
+});
+
+
+
+
 export {
+  createPolicy,
+  getAllPolicies,
+  getLatestTerms,
+  getLatestPrivacy,
+  updatePolicy,
+  deletePolicy,
   createLocationMaster,
   updateLocationMaster,
   getAllLocationMasters,

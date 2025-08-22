@@ -62,6 +62,7 @@ const createUser = asyncHandler(async (req, res) => {
     first_name,
     last_name,
     phone_number,
+    emirates_id,
     gender,
     address,
     age,
@@ -79,6 +80,7 @@ const createUser = asyncHandler(async (req, res) => {
     email,
     first_name,
     phone_number,
+    emirates_id,
     password,
     user_role,
   };
@@ -96,13 +98,13 @@ const createUser = asyncHandler(async (req, res) => {
   }
 
   const existedUser = await User.findOne({
-    $or: [{ email }],
+    $or: [{ email }, { emirates_id }],
   });
 
   if (existedUser) {
     return res
       .status(400)
-      .json(new ApiError(400, "User with email or phone already exists"));
+      .json(new ApiError(400, "User with email or Emirates ID already exists"));
   }
 
   const userRole = await UserRole.findOne({ role_id: user_role });
@@ -129,6 +131,7 @@ const createUser = asyncHandler(async (req, res) => {
     first_name,
     last_name,
     phone_number,
+    emirates_id,
     gender,
     age,
     country,
@@ -158,6 +161,7 @@ const createUser = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(200, createdUser, "User registered Successfully"));
 });
+
 
 //update User
 const updateUser = asyncHandler(async (req, res) => {
@@ -190,6 +194,7 @@ const updateUser = asyncHandler(async (req, res) => {
     experienceYear,
     password,
     birthday,
+    emirates_id,  
   } = req.body;
 
   const imageLocalPath = req.file?.path;
@@ -197,6 +202,16 @@ const updateUser = asyncHandler(async (req, res) => {
   const existingUser = await User.findById(userId);
   if (!existingUser) {
     return res.status(404).json(new ApiError(404, "User not found"));
+  }
+
+  // ✅ Check if emirates_id already exists for another user
+  if (emirates_id && emirates_id !== existingUser.emirates_id) {
+    const emiratesExists = await User.findOne({ emirates_id });
+    if (emiratesExists) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Emirates ID already in use by another user"));
+    }
   }
 
   let profile_image = existingUser.profile_image;
@@ -238,6 +253,7 @@ const updateUser = asyncHandler(async (req, res) => {
       experience,
       experienceYear,
       password,
+      emirates_id,   
       profile_image,
       updated_by: userId,
       updated_at: new Date(),
@@ -249,6 +265,7 @@ const updateUser = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, updatedUser, "User updated successfully"));
 });
+
 
 const getFilteredCustomers = asyncHandler(async (req, res) => {
   const {
@@ -372,7 +389,7 @@ const getUserById = asyncHandler(async (req, res) => {
 
   const user = await User.findById(id)
     .select("-otp -otp_time -password -refreshToken")
-    .populate("user_role country city phone_number");
+    .populate("user_role country city phone_number emirates_id");
 
   if (!user) return res.status(404).json(new ApiError(404, "User not found"));
 
