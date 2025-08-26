@@ -68,6 +68,7 @@ const checkEmail = asyncHandler(async (req, res) => {
 const registerUser = asyncHandler(async (req, res) => {
   console.log("user register Req.body", req.body);
   console.log("user register uid---->", req.user?.uid);
+
   const {
     email,
     user_role,
@@ -79,23 +80,20 @@ const registerUser = asyncHandler(async (req, res) => {
     address,
     profile_image,
     age,
-    password
+    password,
+    emirates_id, 
   } = req.body;
-
-  // const userUid = uid || req.user?.uid || "";
 
   const requiredFields = {
     email,
     first_name,
-    // password,
     user_role,
+    emirates_id, 
   };
 
   const missingFields = Object.keys(requiredFields).filter(
     (field) => !requiredFields[field] || requiredFields[field] === "undefined"
   );
-
-
 
   if (missingFields.length > 0) {
     return res
@@ -105,7 +103,7 @@ const registerUser = asyncHandler(async (req, res) => {
       );
   }
 
-  const existedUser = await User.findOne( { email });
+  const existedUser = await User.findOne({ email });
 
   if (existedUser) {
     return res
@@ -120,14 +118,13 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   const user = await User.create({
-    // uid: req.user?.uid || "",
-    // uid: userUid,
     email,
     city,
     gender,
     address,
     profile_image,
     age,
+    emirates_id, // Store it in DB
     user_role: userRole?._id,
     first_name,
     last_name,
@@ -152,6 +149,7 @@ const registerUser = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(200, createdUser, "User registered Successfully"));
 });
+
 
 
 // loginUser
