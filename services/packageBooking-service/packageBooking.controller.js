@@ -5,6 +5,7 @@ import { Subscription } from "../../models/subscription.model.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { SubscriptionBooking } from "../../models/booking.model.js";
 
 
 const PROXIMITY_THRESHOLD_KM = 0.3;
@@ -96,7 +97,7 @@ const joinClassWithPackage = asyncHandler(async (req, res) => {
   }
 
   // 🔒 Check if this subscription was already purchased directly
-  const alreadyPurchased = await CustomerSubscription.findOne({
+  const alreadyPurchased = await SubscriptionBooking.findOne({
     customer,
     subscription: subscriptionId,
   });

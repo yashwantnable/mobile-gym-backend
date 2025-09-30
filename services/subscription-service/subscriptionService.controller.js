@@ -13,6 +13,7 @@ import { LocationMaster } from "../../models/master.model.js";
 import { SubscriptionBooking } from "../../models/booking.model.js";
 import NotificationService from "../../messaging_feature/services/NotificationService.js";
 import { PackageBooking } from "../../models/packageBooking.model.js";
+import { socketService } from "../../app.js";
 
 const haversineDistance = (coords1, coords2) => {
   const toRad = (x) => (x * Math.PI) / 180;
@@ -231,7 +232,6 @@ const createSubscription = asyncHandler(async (req, res) => {
 
 const updateSubscription = asyncHandler(async (req, res) => {
   const { id } = req.params;
-
   let {
     name,
     categoryId,
@@ -249,6 +249,7 @@ const updateSubscription = asyncHandler(async (req, res) => {
 
   const parsedIsSingleClass = isSingleClass === "true" || isSingleClass === true;
 
+  // Parse date
   let parsedDate = date;
   if (typeof parsedDate === "string") {
     try {
@@ -258,6 +259,7 @@ const updateSubscription = asyncHandler(async (req, res) => {
     }
   }
 
+  // Validate required fields
   if (
     !name ||
     !categoryId ||
@@ -300,14 +302,15 @@ const updateSubscription = asyncHandler(async (req, res) => {
     isSingleClass: parsedIsSingleClass,
   });
 
+  // Find existing subscription
   const existing = await Subscription.findById(id);
   if (!existing) {
     return res.status(404).json(new ApiError(404, "Service not found"));
   }
 
+  // Handle media update
   let mediaUrl = existing.media;
   const fileToProcess = req.file || req.files?.media?.[0];
-
   if (fileToProcess) {
     if (existing.media) await deleteFromCloudinary(existing.media);
     const uploadedMedia = await uploadOnCloudinary(fileToProcess.path);
@@ -317,6 +320,7 @@ const updateSubscription = asyncHandler(async (req, res) => {
     mediaUrl = uploadedMedia.url;
   }
 
+  // Update subscription
   const updatedSubscription = await Subscription.findByIdAndUpdate(
     id,
     {
@@ -352,8 +356,8 @@ const updateSubscription = asyncHandler(async (req, res) => {
       type: "Subscription",
     });
 
-    // Optional: Real-time socket emit
-    io.to(sub.customer._id.toString()).emit("notification:new", {
+    // Real-time socket emit
+    socketService.emitToUser(sub.customer._id, "notification:new", {
       title: "Subscription Updated 🔄",
       message: `The subscription "${updatedSubscription.name}" has been updated.`,
     });
@@ -368,8 +372,8 @@ const updateSubscription = asyncHandler(async (req, res) => {
       type: "Subscription",
     });
 
-    // Optional: Real-time socket emit
-    io.to(updatedSubscription.trainer.toString()).emit("notification:new", {
+    // Real-time socket emit
+    socketService.emitToUser(updatedSubscription.trainer, "notification:new", {
       title: "Subscription Updated ✏️",
       message: `Your subscription "${updatedSubscription.name}" has been modified.`,
     });
@@ -379,6 +383,7 @@ const updateSubscription = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, updatedSubscription, "Service updated successfully"));
 });
+
 
 
 // trainer check in
