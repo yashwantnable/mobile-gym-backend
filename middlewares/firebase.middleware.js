@@ -50,20 +50,21 @@ export const addDataToFirestore = async(req, res) => {
 
 
 // send notification for multiple device
-export const sendNotification = async (user_id, message) => {
+export const sendFirebasePush = async (user_id, message) => {
   try {
-    const query = user_id ? { user_id } : {}
-    const devices = await FCMDevice.find(query);
+    const devices = await FCMDevice.find({ user_id });
 
-    if (!devices || devices.length === 0) {
-      console.error('No devices found for this user');
+    if (!devices.length) {
+      console.warn(`⚠️ No devices found for user ${user_id}`);
       return;
     }
 
-    const tokens = devices.map(device => device.fcm_token).filter(token => token);
+    const tokens = devices
+      .map(d => d.fcm_token)
+      .filter(Boolean);
 
-    if (tokens.length === 0) {
-      console.error('No valid FCM tokens found');
+    if (!tokens.length) {
+      console.warn(`⚠️ No valid FCM tokens for user ${user_id}`);
       return;
     }
 
@@ -72,20 +73,19 @@ export const sendNotification = async (user_id, message) => {
         title: message.title,
         body: message.body,
       },
+      data: message.data || {},
     };
 
     const response = await admin.messaging().sendEachForMulticast({
-      tokens: tokens,
+      tokens,
       ...payload,
     });
 
-    console.log('Successfully sent messages:', response);
+    console.log("📨 FCM Sent:", response.successCount, "success");
   } catch (error) {
-    console.error('Error sending message:', error.message);
+    console.error("🔥 FCM Error:", error);
   }
-
 };
-
 
 // send notification for single device
 // export const sendNotification = async (user_id, message) => {

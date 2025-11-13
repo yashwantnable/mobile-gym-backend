@@ -24,6 +24,7 @@ import { TimeSlot } from "../../models/timeslot.model.js";
 import { Subscription } from "../../models/subscription.model.js";
 import { Session } from "../../models/service.model.js";
 import { SubscriptionBooking } from "../../models/booking.model.js";
+import NotificationService from "../../messaging_feature/services/NotificationService.js";
 
 //Update User status
 const updateUserStatus = asyncHandler(async (req, res) => {
@@ -1684,6 +1685,21 @@ const sendClassRemindersService = async () => {
       type: "class-reminder",
       isRead: false,
     });
+
+     await NotificationService.sendToCustomer({
+      userId: customer._id,
+      title: customerTitle,
+      message: customerMessage,
+      type: "class-reminder",
+    });
+
+    await NotificationService.sendToTrainer({
+        userId: sub.trainer._id,
+        title: trainerTitle,
+        message: trainerMessage,
+        type: "class-reminder",
+      });
+    
 
     io.to(customer._id.toString()).emit("notification:new", {
       title: customerTitle,
