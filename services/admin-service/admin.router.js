@@ -5,11 +5,6 @@ import { verifyJWT } from "../../middlewares/auth.middleware.js";
 import {adminOnly} from "../../middlewares/role.middleware.js"
 
 import {
-      createPet,
-      updatePet,
-      findPetById,
-      findAllPets,
-      deletePet,
       createPromoCode,
       getPromoCodeById,
       updatePromoCode,
@@ -17,7 +12,6 @@ import {
       getAllPromoCodes,
       getAllOrder,
       getDashboardData,
-      getPetCountByType,
       getMonthWiseData,
       getPlannerDashboard,
       getAvailableGroomers,
@@ -35,11 +29,6 @@ const router = Router()
 
 
 
-router.route("/create-pet").post(verifyJWT, upload.uploadAny(),createPet);
-router.route("/updatePet/:petId").put(verifyJWT, upload.uploadAny(), updatePet);
-router.route("/findPetById/:petId").get(verifyJWT, findPetById)
-router.route("/findallpet").post(verifyJWT, findAllPets)
-router.route("/deletePet/:petid").delete(verifyJWT, deletePet)
 
 router.route("/create-promo-code").post(verifyJWT,multer.uploadSingle("image"), createPromoCode);
 router.route("/update-promo-code/:id").put(verifyJWT,multer.uploadSingle("image"),  updatePromoCode);
@@ -53,7 +42,6 @@ router.route("/get-all-orders").get(verifyJWT,adminOnly,getAllOrder);
 
 // Dashboard admin routes
 router.route("/get-dashboard-details").get(verifyJWT,adminOnly,getDashboardData);
-router.route("/get-pet-count-by-type").get(verifyJWT,adminOnly,getPetCountByType);
 router.route("/get-month-wise-data").get(verifyJWT,adminOnly,getMonthWiseData);
 
 

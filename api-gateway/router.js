@@ -2,7 +2,6 @@ import { Router } from "express";
 import userRouter from "../services/user-service/user.router.js";
 import masterRouter from "../services/master-service/master.router.js";
 import authRouter from "../services/auth-service/auth.router.js";
-import petRouter from "../services/Pet-service/pet.router.js"
 import subserviceRouter from "../services/SubService-service/subService.router.js"
 import breedRouter from "../services/master-service/master.router.js"
 import petTypeRouter from "../services/master-service/master.router.js"
@@ -25,7 +24,6 @@ const router = Router();
 router.use("/auth", authRouter);
 router.use("/user", userRouter);
 router.use("/master", masterRouter);
-router.use("/pet", petRouter);
 router.use("/subservice", subserviceRouter)
 router.use("/breed", breedRouter)
 router.use("/petType", petTypeRouter)

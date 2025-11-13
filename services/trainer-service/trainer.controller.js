@@ -7,14 +7,10 @@ import {
   uploadOnCloudinary,
   deleteFromCloudinary,
 } from "../../utils/cloudinary.js";
-import {VaccineSchedule} from "../../models/vaccineSchedule.model.js"
-import {PetRegistration} from "../../models/pet.model.js"
 // import {Vaccine} from "../../models/master.model.js"
 import {OrderDetails} from "../../models/order.model.js"
-import {TimeSlot} from "../../models/timeslot.model.js"
 import {Booking} from "../../models/booking.model.js"
 import mongoose from "mongoose";
-import pagination from "../../utils/pagination.js"
 import { Address } from "../../models/user.model.js";
 import { sendNotification } from "../../middlewares/firebase.middleware.js";
 import haversine from "haversine-distance";
