@@ -6,6 +6,7 @@ export const whiteListCors = [
   "http://192.168.1.19:5174/",
   "http://192.168.1.30:3000/",
   "http://192.168.1.36:3000/",
+  "https://outbox.nablean.com",
   "https://obadmin.nablean.com",
   "*", 
 ];
