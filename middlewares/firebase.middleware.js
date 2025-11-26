@@ -88,25 +88,25 @@ export const sendFirebasePush = async (user_id, message) => {
 };
 
 // send notification for single device
-// export const sendNotification = async (user_id, message) => {
-//   try {
-//     const device = await FCMDevice.findOne({ user_id : user_id });
+export const sendNotification = async (user_id, message) => {
+  try {
+    const device = await FCMDevice.findOne({ user_id : user_id });
 
-//     if (!device || !device.fcm_token) {
-//       throw new Error('User not found or FCM token missing');
-//     }
+    if (!device || !device.fcm_token) {
+      throw new Error('User not found or FCM token missing');
+    }
 
-//     const payload = {
-//       notification: {
-//         title: message.title,
-//         body: message.body,
-//       },
-//       token: device.fcm_token,
-//     };
+    const payload = {
+      notification: {
+        title: message.title,
+        body: message.body,
+      },
+      token: device.fcm_token,
+    };
 
-//     const response = await admin.messaging().send(payload);
-//     console.log('Successfully sent message:', response);
-//   } catch (error) {
-//     console.error('Error sending message:', error.message);
-//   }
-// };
+    const response = await admin.messaging().send(payload);
+    console.log('Successfully sent message:', response);
+  } catch (error) {
+    console.error('Error sending message:', error.message);
+  }
+};
