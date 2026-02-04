@@ -1026,13 +1026,15 @@ const applyPromoCodeToSubscription = asyncHandler(async (req, res) => {
   }
 
   // Validate date range
-  if (
-    !Array.isArray(subscription.date) ||
-    subscription.date.length < 2 ||
-    new Date(subscription.date[1]) < new Date()
-  ) {
-    throw new ApiError(400, "This subscription has already expired or has invalid date");
-  }
+  // if (
+  //   !Array.isArray(subscription.date) ||
+  //   subscription.date.length < 2 ||
+  //   new Date(subscription.date[1]) > new Date()
+  // ) {
+  //   console.log("subscription.date------------------->",subscription.date);
+  //   console.log("new Date------------------->",new Date());
+  //   throw new ApiError(400, "This subscription has already expired or has invalid date");
+  // }
 
   const price = parseFloat(subscription.price || 0);
 

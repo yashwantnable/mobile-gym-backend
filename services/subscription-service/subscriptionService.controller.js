@@ -864,9 +864,11 @@ const getSubscriptionsByUserMiles = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    const { coordinates, miles = 5 } = req.body;
+    const { coordinates, miles, km } = req.body;
 
-    // 1. Validate coordinates
+    /* ----------------------------------------------------
+       VALIDATE COORDINATES
+    ---------------------------------------------------- */
     if (
       !coordinates ||
       !Array.isArray(coordinates) ||
@@ -878,9 +880,29 @@ const getSubscriptionsByUserMiles = asyncHandler(async (req, res) => {
     }
 
     const [lon, lat] = coordinates.map(Number);
-    const distanceInMeters = miles * 1609.34;
 
-    // 2. Step 1: Find nearby LocationMaster documents
+    /* ----------------------------------------------------
+       DISTANCE CALCULATION (KM OR MILES)
+    ---------------------------------------------------- */
+    let distanceInMeters;
+    let distanceLabel;
+
+    if (km !== undefined) {
+      // km has priority
+      distanceInMeters = Number(km) * 1000;
+      distanceLabel = `${km} km`;
+    } else if (miles !== undefined) {
+      distanceInMeters = Number(miles) * 1609.34;
+      distanceLabel = `${miles} mile(s)`;
+    } else {
+      // default: 5 miles
+      distanceInMeters = 5 * 1609.34;
+      distanceLabel = "5 mile(s)";
+    }
+
+    /* ----------------------------------------------------
+       FIND NEARBY LOCATIONS
+    ---------------------------------------------------- */
     const nearbyLocations = await LocationMaster.find({
       location: {
         $near: {
@@ -898,18 +920,19 @@ const getSubscriptionsByUserMiles = asyncHandler(async (req, res) => {
     if (locationIds.length === 0) {
       await session.commitTransaction();
       session.endSession();
-      return res
-        .status(200)
-        .json(
-          new ApiResponse(
-            200,
-            [],
-            `No subscriptions found within ${miles} mile(s).`
-          )
-        );
+
+      return res.status(200).json(
+        new ApiResponse(
+          200,
+          [],
+          `No subscriptions found within ${distanceLabel}.`
+        )
+      );
     }
 
-    // 3. Step 2: Find subscriptions with matching Address IDs
+    /* ----------------------------------------------------
+       FIND SUBSCRIPTIONS
+    ---------------------------------------------------- */
     const subscriptions = await Subscription.find({
       Address: { $in: locationIds },
     })
@@ -917,21 +940,21 @@ const getSubscriptionsByUserMiles = asyncHandler(async (req, res) => {
       .session(session)
       .lean();
 
-    // 4. Step 3: Enrich with reviews if needed
+    /* ----------------------------------------------------
+       ENRICH WITH REVIEWS
+    ---------------------------------------------------- */
     const enriched = await enrichSubscriptionsWithReviews(subscriptions);
 
     await session.commitTransaction();
     session.endSession();
 
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          enriched,
-          `Subscriptions within ${miles} mile(s) from your location`
-        )
-      );
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        enriched,
+        `Subscriptions within ${distanceLabel} from your location`
+      )
+    );
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -943,6 +966,7 @@ const getSubscriptionsByUserMiles = asyncHandler(async (req, res) => {
     });
   }
 });
+
 
 // controllers/subscription.controller.ts
 const getSubscriptionsByTrainerId = asyncHandler(async (req, res) => {
@@ -1008,14 +1032,20 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
     isExpired,
     isSingleClass,
     location,
+    coordinates,
+    miles,
+    km,
     page = 1,
     limit = 100,
   } = req.body || {};
 
   const now = new Date();
 
-  // Auto-update expired subscriptions
+  /* ----------------------------------------------------
+     AUTO UPDATE EXPIRED SUBSCRIPTIONS
+  ---------------------------------------------------- */
   const allSubscriptions = await Subscription.find({}, { _id: 1, date: 1 });
+
   const expiredIds = allSubscriptions
     .filter((sub) => {
       const dates = sub.date || [];
@@ -1031,6 +1061,63 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
     );
   }
 
+  /* ----------------------------------------------------
+     DISTANCE CALCULATION (KM / MILES)
+  ---------------------------------------------------- */
+  let distanceInMeters = null;
+  let distanceLabel = null;
+  let nearbyLocationIds = [];
+
+  if (coordinates && Array.isArray(coordinates) && coordinates.length === 2) {
+    const [lon, lat] = coordinates.map(Number);
+
+    if (km !== undefined) {
+      distanceInMeters = Number(km) * 1000;
+      distanceLabel = `${km} km`;
+    } else if (miles !== undefined) {
+      distanceInMeters = Number(miles) * 1609.34;
+      distanceLabel = `${miles} mile(s)`;
+    } else {
+      distanceInMeters = 5 * 1609.34; // default
+      distanceLabel = "5 mile(s)";
+    }
+
+    const nearbyLocations = await LocationMaster.find({
+      location: {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [lon, lat],
+          },
+          $maxDistance: distanceInMeters,
+        },
+      },
+    }).select("_id");
+
+    nearbyLocationIds = nearbyLocations.map((loc) => loc._id);
+
+    if (nearbyLocationIds.length === 0) {
+      return res.status(200).json(
+        new ApiResponse(
+          200,
+          {
+            subscriptions: [],
+            pagination: {
+              total: 0,
+              page: Number(page),
+              limit: Number(limit),
+              totalPages: 0,
+            },
+          },
+          `No subscriptions found within ${distanceLabel}`
+        )
+      );
+    }
+  }
+
+  /* ----------------------------------------------------
+     HELPERS
+  ---------------------------------------------------- */
   const normalizeToArray = (input) =>
     Array.isArray(input) ? input : input ? [input] : [];
 
@@ -1038,24 +1125,15 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
     const filter = {};
 
     if (isExpired !== undefined) {
-      if (Array.isArray(isExpired)) {
-        filter.isExpired = {
-          $in: isExpired.map((v) => v === "true" || v === true),
-        };
-      } else {
-        filter.isExpired = isExpired === "true" || isExpired === true;
-      }
+      filter.isExpired = Array.isArray(isExpired)
+        ? { $in: isExpired.map((v) => v === "true" || v === true) }
+        : isExpired === "true" || isExpired === true;
     }
 
     if (isSingleClass !== undefined) {
-      if (Array.isArray(isSingleClass)) {
-        filter.isSingleClass = {
-          $in: isSingleClass.map((v) => v === "true" || v === true),
-        };
-      } else {
-        filter.isSingleClass =
-          isSingleClass === "true" || isSingleClass === true;
-      }
+      filter.isSingleClass = Array.isArray(isSingleClass)
+        ? { $in: isSingleClass.map((v) => v === "true" || v === true) }
+        : isSingleClass === "true" || isSingleClass === true;
     }
 
     if (minPrice || maxPrice) {
@@ -1066,31 +1144,34 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
 
     if (categoryId) {
       const values = normalizeToArray(categoryId);
-      if (values.length === 1) filter.categoryId = values[0];
-      else filter.categoryId = { $in: values };
+      filter.categoryId = values.length === 1 ? values[0] : { $in: values };
     }
 
     if (sessionTypeId) {
       const values = normalizeToArray(sessionTypeId);
-      if (values.length === 1) filter.sessionType = values[0];
-      else filter.sessionType = { $in: values };
+      filter.sessionType =
+        values.length === 1 ? values[0] : { $in: values };
     }
 
     if (trainerId) {
       const values = normalizeToArray(trainerId);
-      if (values.length === 1) filter.trainer = values[0];
-      else filter.trainer = { $in: values };
+      filter.trainer = values.length === 1 ? values[0] : { $in: values };
     }
 
-    if (location) {
+    // 📍 GEO OR MANUAL LOCATION
+    if (coordinates && nearbyLocationIds.length > 0) {
+      filter.Address = { $in: nearbyLocationIds };
+    } else if (location) {
       const values = normalizeToArray(location);
-      if (values.length === 1) filter.Address = values[0];
-      else filter.Address = { $in: values };
+      filter.Address = values.length === 1 ? values[0] : { $in: values };
     }
 
     return filter;
   };
 
+  /* ----------------------------------------------------
+     FETCH SUBSCRIPTIONS
+  ---------------------------------------------------- */
   let filter = buildFilter();
   const skip = (Number(page) - 1) * Number(limit);
 
@@ -1100,7 +1181,9 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
     .limit(Number(limit))
     .lean();
 
-  // Fallback for isExpired=false
+  /* ----------------------------------------------------
+     FALLBACK FOR isExpired = false
+  ---------------------------------------------------- */
   if (
     subscriptions.length === 0 &&
     (isExpired === false || isExpired === "false")
@@ -1115,16 +1198,20 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
       .lean();
   }
 
+  /* ----------------------------------------------------
+     ENRICH WITH REVIEWS
+  ---------------------------------------------------- */
   const subscriptionIds = subscriptions.map((s) => s._id);
+
   const allReviews = await SubscriptionRatingReview.find({
     subscriptionId: { $in: subscriptionIds },
   }).lean();
 
   const reviewMap = {};
   for (const review of allReviews) {
-    const subId = review.subscriptionId.toString();
-    if (!reviewMap[subId]) reviewMap[subId] = [];
-    reviewMap[subId].push(review);
+    const id = review.subscriptionId.toString();
+    if (!reviewMap[id]) reviewMap[id] = [];
+    reviewMap[id].push(review);
   }
 
   subscriptions = subscriptions.map((sub) => {
@@ -1142,7 +1229,9 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
     };
   });
 
-  // Sorting
+  /* ----------------------------------------------------
+     SORTING
+  ---------------------------------------------------- */
   if (sortBy === "price") {
     subscriptions.sort((a, b) =>
       order === "asc" ? a.price - b.price : b.price - a.price
@@ -1161,6 +1250,9 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
     );
   }
 
+  /* ----------------------------------------------------
+     RESPONSE
+  ---------------------------------------------------- */
   const totalCount = await Subscription.countDocuments(filter);
 
   return res.status(200).json(
@@ -1179,6 +1271,7 @@ const filterAndSortSubscriptions = asyncHandler(async (req, res) => {
     )
   );
 });
+
 
 const getSubscriptionsBySessionTypeId = asyncHandler(async (req, res) => {
   const { sessionTypeId } = req.params;

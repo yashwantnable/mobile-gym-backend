@@ -16,9 +16,10 @@ import { CollectionGroup } from "firebase-admin/firestore";
 
 
 //generate access and refreshtoken
-const generateAccessAndRefereshTokens = async (res, userId) => {
+const generateAccessAndRefereshTokens = async (userId) => {
   try {
     const user = await User.findById(userId);
+
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
 
@@ -26,17 +27,13 @@ const generateAccessAndRefereshTokens = async (res, userId) => {
     await user.save({ validateBeforeSave: false });
 
     return { accessToken, refreshToken };
+
   } catch (error) {
-    return res
-      .status(500)
-      .json(
-        new ApiError(
-          500,
-          "Something went wrong while generating referesh and access token"
-        )
-      );
+    console.error("Token generation error:", error);
+    throw new Error("Error generating tokens");
   }
 };
+
 
 
 //checkEmail
@@ -65,6 +62,91 @@ const checkEmail = asyncHandler(async (req, res) => {
 
 
 // registerUSer
+// const registerUser = asyncHandler(async (req, res) => {
+//   console.log("user register Req.body", req.body);
+//   console.log("user register uid---->", req.user?.uid);
+
+//   const {
+//     email,
+//     user_role,
+//     first_name,
+//     last_name,
+//     country,
+//     city,
+//     gender,
+//     address,
+//     profile_image,
+//     age,
+//     password,
+//     emirates_id, 
+//   } = req.body;
+
+//   const requiredFields = {
+//     email,
+//     first_name,
+//     user_role,
+//     emirates_id, 
+//   };
+
+//   const missingFields = Object.keys(requiredFields).filter(
+//     (field) => !requiredFields[field] || requiredFields[field] === "undefined"
+//   );
+
+//   if (missingFields.length > 0) {
+//     return res
+//       .status(400)
+//       .json(
+//         new ApiError(400, `Missing required field: ${missingFields.join(", ")}`)
+//       );
+//   }
+
+//   const existedUser = await User.findOne({ email });
+
+//   if (existedUser) {
+//     return res
+//       .status(400)
+//       .json(new ApiError(400, "User with email already exists"));
+//   }
+
+//   const userRole = await UserRole.findOne({ role_id: user_role });
+
+//   if (!userRole) {
+//     return res.status(400).json(new ApiError(400, "User Role Not found"));
+//   }
+
+//   const user = await User.create({
+//     email,
+//     city,
+//     gender,
+//     address,
+//     profile_image,
+//     age,
+//     emirates_id, // Store it in DB
+//     user_role: userRole?._id,
+//     first_name,
+//     last_name,
+//     country,
+//     password: password || "",
+//     status: userRole?.name === "customer" ? "Approved" : "Pending",
+//   });
+
+//   const createdUser = await User.findById(user._id).select(
+//     "-password -refreshToken -user_role -otp -otp_time -uid"
+//   );
+
+//   if (!createdUser) {
+//     return res
+//       .status(500)
+//       .json(
+//         new ApiError(500, "Something went wrong while registering the user")
+//       );
+//   }
+
+//   return res
+//     .status(201)
+//     .json(new ApiResponse(200, createdUser, "User registered Successfully"));
+// });
+
 const registerUser = asyncHandler(async (req, res) => {
   console.log("user register Req.body", req.body);
   console.log("user register uid---->", req.user?.uid);
@@ -81,14 +163,18 @@ const registerUser = asyncHandler(async (req, res) => {
     profile_image,
     age,
     password,
-    emirates_id, 
+    emirates_id,
+    uid,               // ⭐ Accept UID
   } = req.body;
+
+  // ⭐ Use UID from body or Firebase token (req.user?.uid)
+  const userUid = uid || req.user?.uid || "";
 
   const requiredFields = {
     email,
     first_name,
     user_role,
-    emirates_id, 
+    emirates_id,
   };
 
   const missingFields = Object.keys(requiredFields).filter(
@@ -117,14 +203,16 @@ const registerUser = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "User Role Not found"));
   }
 
+  // ⭐ Save UID to DB
   const user = await User.create({
+    uid: userUid, // <--- ADDED
     email,
     city,
     gender,
     address,
     profile_image,
     age,
-    emirates_id, // Store it in DB
+    emirates_id,
     user_role: userRole?._id,
     first_name,
     last_name,
@@ -134,7 +222,7 @@ const registerUser = asyncHandler(async (req, res) => {
   });
 
   const createdUser = await User.findById(user._id).select(
-    "-password -refreshToken -user_role -otp -otp_time -uid"
+    "-password -refreshToken -user_role -otp -otp_time -uid" // ⭐ Hide UID in response (same as grooming backend)
   );
 
   if (!createdUser) {
@@ -151,114 +239,111 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 
-
 // loginUser
 const loginUser = asyncHandler(async (req, res) => {
-
   try {
-   
-    const { emailOrPhone, password, provider } = req.body;
+    const { emailOrPhone, password, provider, uid } = req.body;
+    const googleUid = uid || req.user?.uid || null;
+    const requestedRoleId = Number(req.params.role_id);
 
-    const requiredFields = {
-      emailOrPhone,
-    };
-
-    const missingFields = Object.keys(requiredFields).filter(
-      (field) => !requiredFields[field] || requiredFields[field] === "undefined"
-    );
-
-    if (missingFields.length > 0) {
-      return res
-        .status(400)
-        .json(
-          new ApiError(
-            400,
-            `Missing required field: ${missingFields.join(", ")}`
-          )
-        );
+    if (!emailOrPhone) {
+      return res.status(400).json({
+        statusCode: 400,
+        success: false,
+        message: "Missing required field: emailOrPhone",
+      });
     }
 
     let user;
+
+    // 🔹 NORMAL LOGIN (email/phone + password)
     if (!provider) {
       if (emailOrPhone.includes("@")) {
-        user = await User.findOne({ email: emailOrPhone }).populate(
-          "user_role"
-        );
-        
-        if (!user)
-          return res.status(400).json(new ApiError(400, "Email not found!"));
+        user = await User.findOne({ email: emailOrPhone }).populate("user_role");
       } else {
-        user = await User.findOne({ phone_number: emailOrPhone }).populate(
-          "user_role"
-        );
-       
-        if (!user)
-          return res
-            .status(400)
-            .json(new ApiError(400, "Phone number not found!"));
+        user = await User.findOne({ phone_number: emailOrPhone }).populate("user_role");
+      }
+
+      if (!user) {
+        return res.status(404).json({
+          statusCode: 404,
+          success: false,
+          message: "User not found",
+        });
       }
 
       const isPasswordValid = await user.isPasswordCorrect(password);
-
       if (!isPasswordValid) {
-        return res
-          .status(401)
-          .json(new ApiError(401, "Invalid user credentials"));
+        return res.status(401).json({
+          statusCode: 401,
+          success: false,
+          message: "Invalid credentials",
+        });
       }
-    } else {
-      if (emailOrPhone.includes("@")) {
-        user = await User.findOne({
+    }
+
+
+    // 🔹 GOOGLE LOGIN (email + uid)
+    else {
+      user = await User.findOne({
+        email: emailOrPhone,
+        uid: googleUid
+      }).populate("user_role");
+
+      // 🟢 AUTO-REGISTER GOOGLE USER
+      if (!user) {
+        const userRole = await UserRole.findOne({ role_id: requestedRoleId });
+
+        const newUser = await User.create({
           email: emailOrPhone,
-          // uid: String(req.user?.uid),
-        }).populate("user_role");
-       
-      } else {
-        user = await User.findOne({
-          phone_number: emailOrPhone,
-          // uid: req.user?.uid,
-        }).populate("user_role");
-         
+          uid: googleUid,
+          isGoogleUser: true,
+          googleUid,
+          password: "",
+          user_role: userRole._id,
+          status: "approved",
+          customerInfo: { name: req.body.name || "", profilePicture: req.body.profilePicture }
+        });
+
+        user = await User.findById(newUser._id).populate("user_role");
       }
     }
 
-    if (
-      !user ||
-      !user.user_role ||
-      user.user_role.role_id !== Number(req.params.role_id)
-    ) {
-      return res.status(404).json(new ApiError(404, "User does not exist"));
+    // 🔹 ROLE CHECK
+    if (user.user_role.role_id !== requestedRoleId) {
+      return res.status(403).json({
+        statusCode: 403,
+        success: false,
+        message: "User role mismatch",
+      });
     }
 
-    const { accessToken, refreshToken } = await generateAccessAndRefereshTokens(
-      res,
-      user._id
-    );
+    const { accessToken, refreshToken } = await generateAccessAndRefereshTokens(user._id);
 
     const loggedInUser = await User.findById(user._id)
-      .select("-password -refreshToken -otp -otp_time -uid")
-      .populate("user_role")
-      .populate("country")
-      .populate("city");
+      .select("-password -refreshToken -otp -otp_time")
+      .populate("user_role country city");
 
-    const options = { httpOnly: true, secure: true };
+    return res.status(200).json({
+      statusCode: 200,
+      success: true,
+      data: {
+        user: loggedInUser,
+        accessToken,
+        refreshToken,
+      },
+      message: "User logged in successfully",
+    });
 
-    return res
-      .status(200)
-      .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", refreshToken, options)
-      .json(
-        new ApiResponse(
-          200,
-          { user: loggedInUser,  accessToken, refreshToken },
-          "User logged In Successfully"
-        )
-      );
   } catch (error) {
     console.error("Error during login:", error);
-    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+    return res.status(500).json({
+      statusCode: 500,
+      success: false,
+      message: "Internal Server Error",
+    });
   }
 });
-
 
 //logoutuser
 const logoutUser = asyncHandler(async (req, res) => {

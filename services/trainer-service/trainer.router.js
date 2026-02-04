@@ -24,10 +24,30 @@ import {
 const router = Router();
 
 router.route("/update-trainer-status/:trainerId").patch(verifyJWT, trainerOnly, updateTrainerStatus);
-router.route("/create-trainer").post(verifyJWT, adminOnly, multer.uploadSingle("profile_image"), createTrainer);
+router.route("/create-trainer").post(
+  verifyJWT,
+  adminOnly,
+  multer.uploadFields([
+    { name: "profile_image", maxCount: 1 },
+    { name: "id_proof", maxCount: 1 },
+    { name: "certificate", maxCount: 1 },
+  ]),
+  createTrainer
+);
+
 router.route("/get-all-trainers").get(verifyJWT, getAllTrainer);
 router.route("/get-trainerBy-id/:id").get(verifyJWT, getTrainerrById);
-router.route("/update-trainer/:id").put(verifyJWT, adminOnly, multer.uploadSingle("profile_image"), updateTrainer);
+router.route("/update-trainer/:id").put(
+  verifyJWT,
+  adminOnly,
+  multer.uploadFields([
+    { name: "profile_image", maxCount: 1 },
+    { name: "id_proof", maxCount: 1 },
+    { name: "certificate", maxCount: 1 },
+  ]),
+  updateTrainer
+);
+
 router.route("/delete-trainer/:id").delete(verifyJWT, adminOnly, deleteTrainer);
 
 

@@ -4,16 +4,16 @@ import bcrypt from "bcrypt";
 
 const userSchema = new Schema(
   {
-    // uid: {
-    //   type: String,
-    //   unique: true,
-    // },
-     emirates_id: {
+    uid: {
+      type: String,
+      unique: true,
+    },
+    emirates_id: {
       type: String,
       unique: true,
       required: true,
       trim: true,
-      maxlength: 20, 
+      maxlength: 20,
     },
     email: {
       type: String,
@@ -63,6 +63,15 @@ const userSchema = new Schema(
       type: String,
       default: null,
     },
+    id_proof: {
+      type: String,
+      default: null,
+    },
+    certificate: {
+      type: String,
+      default: null,
+    },
+
     country: {
       type: Schema.Types.ObjectId,
       ref: "Country",
@@ -134,7 +143,7 @@ const userSchema = new Schema(
   {
     timestamps: true,
     versionKey: false,
-  }
+  },
 );
 
 userSchema.index({ location: "2dsphere" });
@@ -171,7 +180,7 @@ userSchema.methods.generateAccessToken = function () {
     process.env.ACCESS_TOKEN_SECRET,
     {
       expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
-    }
+    },
   );
 };
 
@@ -184,7 +193,7 @@ userSchema.methods.generateRefreshToken = function () {
     process.env.REFRESH_TOKEN_SECRET,
     {
       expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
-    }
+    },
   );
 };
 
@@ -213,7 +222,7 @@ const FCMDeviceSchema = new Schema(
   {
     timestamps: true,
     versionKey: false,
-  }
+  },
 );
 
 const userAddressSchema = new Schema(
@@ -303,7 +312,7 @@ const userAddressSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 userAddressSchema.index({ coordinates: "2dsphere" });
@@ -312,7 +321,7 @@ userAddressSchema.pre("save", async function (next) {
   if (address.make_default_address) {
     await address.constructor.updateMany(
       { created_by: address.created_by, _id: { $ne: address._id } },
-      { make_default_address: false }
+      { make_default_address: false },
     );
   }
   next();
@@ -322,7 +331,7 @@ userAddressSchema.post("findOneAndUpdate", async function (doc) {
   if (doc && doc.make_default_address) {
     await doc.constructor.updateMany(
       { created_by: doc.created_by, _id: { $ne: doc._id } },
-      { make_default_address: false }
+      { make_default_address: false },
     );
   }
 });

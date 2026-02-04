@@ -22,15 +22,12 @@ import { TrainerRatingReview } from "../../models/trainerRatingReview.model.js";
 
 // Create trainer
 const createTrainer = asyncHandler(async (req, res) => {
-  console.log("req.body", req.body)
-
   const {
-    email, first_name, last_name, phone_number, gender, address, age, country, city, specialization, experience, experienceYear, password
+    email, first_name, last_name, phone_number, gender, address, age,
+    country, city, specialization, experience, emirates_id, experienceYear, password
   } = req.body;
 
-  const imageLocalPath = req.file?.path;
-
-  const requiredFields = { email, first_name, phone_number, password };
+  const requiredFields = { email, first_name, emirates_id, phone_number, password };
 
   const missingFields = Object.keys(requiredFields).filter(
     (field) => !requiredFields[field] || requiredFields[field] === "undefined"
@@ -42,31 +39,40 @@ const createTrainer = asyncHandler(async (req, res) => {
       .json(new ApiError(400, `Missing required field: ${missingFields.join(", ")}`));
   }
 
-  const existedUser = await User.findOne({ $or: [{ email }, { phone_number }] });
-
+  const existedUser = await User.findOne({ $or: [{ email }, { phone_number }, { emirates_id }] });
   if (existedUser) {
-    return res.status(400).json(new ApiError(400, "Email or Phone already exists"));
+    return res.status(400).json(new ApiError(400, "Email, Emirates Id or Phone already exists"));
   }
 
   const trainerRole = await UserRole.findOne({ name: "trainer" });
+  if (!trainerRole) return res.status(400).json(new ApiError(400, "Trainer role not found"));
 
-  if (!trainerRole) {
-    return res.status(400).json(new ApiError(400, "Trainer role not found"));
+  // ✅ Multer fields
+  const profilePath = req.files?.profile_image?.[0]?.path;
+  const idProofPath = req.files?.id_proof?.[0]?.path;
+  const certificatePath = req.files?.certificate?.[0]?.path;
+
+  // ✅ Upload in parallel
+  const [profileUpload, idProofUpload, certificateUpload] = await Promise.all([
+    profilePath ? uploadOnCloudinary(profilePath) : Promise.resolve(null),
+    idProofPath ? uploadOnCloudinary(idProofPath) : Promise.resolve(null),
+    certificatePath ? uploadOnCloudinary(certificatePath) : Promise.resolve(null),
+  ]);
+
+  if (profilePath && !profileUpload?.url) {
+    return res.status(400).json(new ApiError(400, "Profile image upload failed"));
+  }
+  if (idProofPath && !idProofUpload?.url) {
+    return res.status(400).json(new ApiError(400, "ID proof upload failed"));
+  }
+  if (certificatePath && !certificateUpload?.url) {
+    return res.status(400).json(new ApiError(400, "Certificate upload failed"));
   }
 
-  let profile_image = null;
-  if (imageLocalPath) {
-    const uploadedImage = await uploadOnCloudinary(imageLocalPath);
-    if (!uploadedImage?.url) {
-      return res.status(400).json(new ApiError(400, "Error while uploading image"));
-    }
-    profile_image = uploadedImage.url;
-  }
-
+  // serviceProvider parsing (same as you already have)
   let serviceProvider = [];
-
   if (req.body.serviceProvider) {
-    if (typeof req.body.serviceProvider === 'string') {
+    if (typeof req.body.serviceProvider === "string") {
       try {
         serviceProvider = JSON.parse(req.body.serviceProvider);
       } catch (err) {
@@ -85,17 +91,22 @@ const createTrainer = asyncHandler(async (req, res) => {
     last_name,
     phone_number,
     gender,
+    address,
     age,
     country,
-    profile_image,
     city,
-    address,
     specialization,
     experience,
+    emirates_id,
     experienceYear,
     serviceProvider,
     password,
     status: "Pending",
+
+    // ✅ save URLs
+    profile_image: profileUpload?.url || null,
+    id_proof: idProofUpload?.url || null,
+    certificate: certificateUpload?.url || null,
   });
 
   const createdtrainer = await User.findById(trainer._id)
@@ -104,6 +115,7 @@ const createTrainer = asyncHandler(async (req, res) => {
 
   res.status(201).json(new ApiResponse(201, createdtrainer, "trainer registered successfully"));
 });
+
 
 
 const getAllTrainer = asyncHandler(async (req, res) => {
@@ -190,37 +202,54 @@ const updateTrainer = asyncHandler(async (req, res) => {
     return res.status(404).json(new ApiError(404, "Trainer not found"));
   }
 
-  // Handle image upload if new image is provided
-  const imageLocalPath = req.file?.path;
+  const profilePath = req.files?.profile_image?.[0]?.path;
+  const idProofPath = req.files?.id_proof?.[0]?.path;
+  const certificatePath = req.files?.certificate?.[0]?.path;
+
   let profile_image = existingTrainer.profile_image;
+  let id_proof = existingTrainer.id_proof;
+  let certificate = existingTrainer.certificate;
 
-  if (imageLocalPath) {
-    const [_, uploadResult] = await Promise.all([
-      profile_image ? deleteFromCloudinary(profile_image) : Promise.resolve(),
-      uploadOnCloudinary(imageLocalPath),
-    ]);
+  // Upload & replace (parallel)
+  const [profileRes, idProofRes, certificateRes] = await Promise.all([
+    profilePath
+      ? (profile_image ? deleteFromCloudinary(profile_image) : Promise.resolve())
+          .then(() => uploadOnCloudinary(profilePath))
+      : Promise.resolve(null),
 
-    if (!uploadResult?.url) {
-      return res.status(400).json(new ApiError(400, "Image upload failed"));
-    }
-    profile_image = uploadResult.url;
-  }
+    idProofPath
+      ? (id_proof ? deleteFromCloudinary(id_proof) : Promise.resolve())
+          .then(() => uploadOnCloudinary(idProofPath))
+      : Promise.resolve(null),
 
-  // Hash password if present in update
+    certificatePath
+      ? (certificate ? deleteFromCloudinary(certificate) : Promise.resolve())
+          .then(() => uploadOnCloudinary(certificatePath))
+      : Promise.resolve(null),
+  ]);
+
+  if (profilePath && !profileRes?.url) return res.status(400).json(new ApiError(400, "Profile upload failed"));
+  if (idProofPath && !idProofRes?.url) return res.status(400).json(new ApiError(400, "ID proof upload failed"));
+  if (certificatePath && !certificateRes?.url) return res.status(400).json(new ApiError(400, "Certificate upload failed"));
+
+  if (profileRes?.url) profile_image = profileRes.url;
+  if (idProofRes?.url) id_proof = idProofRes.url;
+  if (certificateRes?.url) certificate = certificateRes.url;
+
+  // Hash password if present
   if (req.body.password) {
     req.body.password = await bcrypt.hash(req.body.password, 10);
   }
 
   const updatedTrainer = await User.findByIdAndUpdate(
     trainerId,
-    { ...req.body, profile_image },
-    { new: true, runValidators: true, context: "query" } // run validators and allow hooks if needed
+    { ...req.body, profile_image, id_proof, certificate },
+    { new: true, runValidators: true, context: "query" }
   ).populate("user_role country city");
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, updatedTrainer, "Trainer updated successfully"));
+  res.status(200).json(new ApiResponse(200, updatedTrainer, "Trainer updated successfully"));
 });
+
 
 
 /**--------- */

@@ -1,5 +1,6 @@
 import { Notification } from "../../models/notification.model.js";
 import { socketService } from "../../app.js";
+import { sendFirebasePush } from "../../middlewares/firebase.middleware.js";
 
 class NotificationService {
   /**
