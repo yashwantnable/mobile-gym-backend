@@ -607,7 +607,7 @@ const trainerCheckOut = asyncHandler(async (req, res) => {
 // });
 const getAllSubscription = asyncHandler(async (req, res) => {
   try {
-    const { isExpired } = req.query;
+    const { isExpired = "false" } = req.query;
     const now = new Date();
 
     let filter = {};
